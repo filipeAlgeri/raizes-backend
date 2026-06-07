@@ -87,7 +87,7 @@ async function consultarSaldo(clienteId) {
 
   return {
     ...pontos,
-    equivalenteEmReais: Math.floor(pontos.saldoAtual / PONTOS_PARA_RESGATAR) * VALOR_RESGATE,
+    equivalenteEmReais: Number((pontos.saldoAtual * VALOR_RESGATE / PONTOS_PARA_RESGATAR).toFixed(2)),
     proximoBonusEm:
       pedidosParaProximoBonus === BONUS_A_CADA_PEDIDOS ? 0 : pedidosParaProximoBonus,
   };
@@ -211,43 +211,57 @@ async function creditarPontosPorPedido(tx, { clienteId, pedidoId, totalPedido })
 
 /**
  * Resgata pontos do cliente em troca de desconto.
- * Regra: blocos de 100 pontos = R$20,00.
- * O cliente informa quantos blocos quer resgatar (qtdBlocos >= 1).
+ *
+ * O cliente opta por resgatar todos os pontos disponíveis:
+ * - Desconto parcial: pontos cobrem menos que totalCompra → todos os pontos são usados.
+ * - Desconto total:   pontos cobrem totalCompra ou mais   → usa-se só o necessário,
+ *                     o restante permanece acumulado.
+ *
+ * Taxa de conversão: VALOR_RESGATE reais a cada PONTOS_PARA_RESGATAR pontos.
+ *
+ * @param {number} totalCompra - Valor total da compra em R$.
  */
-async function resgatarPontos(clienteId, qtdBlocos) {
+async function resgatarPontos(clienteId, totalCompra) {
   await _assertClienteFidelidade(clienteId);
 
-  if (!qtdBlocos || !Number.isInteger(qtdBlocos) || qtdBlocos < 1) {
+  const totalCompraNum = Number(totalCompra);
+  if (!totalCompra || isNaN(totalCompraNum) || totalCompraNum <= 0) {
     throw new AppError(
-      'qtdBlocos deve ser um inteiro positivo (mínimo 1).',
+      'totalCompra deve ser um número positivo.',
       422,
-      'QUANTIDADE_INVALIDA',
-      [{ field: 'qtdBlocos', issue: 'Deve ser >= 1.' }]
+      'DADOS_INVALIDOS',
+      [{ field: 'totalCompra', issue: 'Deve ser um valor positivo.' }]
     );
   }
 
-  const pontosNecessarios = qtdBlocos * PONTOS_PARA_RESGATAR;
-  const valorDesconto = qtdBlocos * VALOR_RESGATE;
-
   return prisma.$transaction(async (tx) => {
     const registro = await tx.pontosCliente.findUnique({ where: { clienteId } });
+    const saldoAtual = registro?.saldoAtual ?? 0;
 
-    if (!registro || registro.saldoAtual < pontosNecessarios) {
-      const saldoAtual = registro?.saldoAtual ?? 0;
+    if (!registro || saldoAtual <= 0) {
       throw new AppError(
-        `Saldo insuficiente para resgate. Necessário: ${pontosNecessarios} pts. Disponível: ${saldoAtual} pts.`,
+        `Saldo insuficiente para resgate. Disponível: ${saldoAtual} pts.`,
         409,
         'SALDO_INSUFICIENTE',
-        [
-          {
-            field: 'qtdBlocos',
-            issue: `Necessário: ${pontosNecessarios} pts. Disponível: ${saldoAtual} pts.`,
-          },
-        ]
+        [{ field: 'clienteId', issue: `Saldo disponível: ${saldoAtual} pts.` }]
       );
     }
 
-    const novoSaldo = registro.saldoAtual - pontosNecessarios;
+    const descontoMaximo = Number((saldoAtual * VALOR_RESGATE / PONTOS_PARA_RESGATAR).toFixed(2));
+
+    let valorDesconto, pontosUsados;
+
+    if (descontoMaximo <= totalCompraNum) {
+      // Desconto parcial: usa todos os pontos
+      valorDesconto = descontoMaximo;
+      pontosUsados = saldoAtual;
+    } else {
+      // Desconto total: usa apenas os pontos necessários para cobrir a compra
+      valorDesconto = Number(totalCompraNum.toFixed(2));
+      pontosUsados = Math.ceil(totalCompraNum * PONTOS_PARA_RESGATAR / VALOR_RESGATE);
+    }
+
+    const novoSaldo = saldoAtual - pontosUsados;
 
     await tx.pontosCliente.update({
       where: { clienteId },
@@ -259,8 +273,8 @@ async function resgatarPontos(clienteId, qtdBlocos) {
         clienteId,
         pontosClienteId: registro.id,
         tipo: 'RESGATE',
-        quantidade: -pontosNecessarios,
-        descricao: `Resgate de ${qtdBlocos} bloco(s) — desconto de R$${valorDesconto.toFixed(2)}`,
+        quantidade: -pontosUsados,
+        descricao: `Resgate de ${pontosUsados} pts — desconto de R$${valorDesconto.toFixed(2)}`,
       },
       select: {
         id: true, tipo: true, quantidade: true, descricao: true, criadoEm: true,
@@ -268,9 +282,9 @@ async function resgatarPontos(clienteId, qtdBlocos) {
     });
 
     return {
-      pontosResgatados: pontosNecessarios,
+      pontosUsados,
       valorDesconto,
-      saldoAnterior: registro.saldoAtual,
+      saldoAnterior: saldoAtual,
       saldoAtual: novoSaldo,
       historico,
     };

@@ -1,5 +1,4 @@
 const fidelidadeService = require('../../application/fidelidade/fidelidadeService');
-const { AppError } = require('../../domain/errors');
 
 // ---------------------------------------------------------------
 // GET /fidelidade/:clienteId/saldo
@@ -75,19 +74,19 @@ async function resgatar(req, res, next) {
       });
     }
 
-    const { qtdBlocos } = req.body;
+    const { totalCompra } = req.body;
 
-    if (qtdBlocos === undefined || qtdBlocos === null) {
+    if (totalCompra === undefined || totalCompra === null) {
       return res.status(422).json({
         error: 'DADOS_INVALIDOS',
-        message: 'O campo qtdBlocos é obrigatório.',
-        details: [{ field: 'qtdBlocos', issue: 'Campo obrigatório.' }],
+        message: 'O campo totalCompra é obrigatório.',
+        details: [{ field: 'totalCompra', issue: 'Campo obrigatório.' }],
         timestamp: new Date().toISOString(),
         path: req.originalUrl,
       });
     }
 
-    const resultado = await fidelidadeService.resgatarPontos(clienteId, Number(qtdBlocos));
+    const resultado = await fidelidadeService.resgatarPontos(clienteId, Number(totalCompra));
     return res.status(200).json(resultado);
   } catch (err) {
     next(err);
