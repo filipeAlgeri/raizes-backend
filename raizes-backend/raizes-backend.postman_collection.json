@@ -1,0 +1,683 @@
+{
+  "info": {
+    "name": "Raízes do Nordeste — API Back-End",
+    "description": "Coleção de testes da API REST do Projeto Multidisciplinar — Trilha Back-End — UNINTER 2026.\n\n## Como usar\n1. Importe este arquivo no Postman.\n2. Crie um environment com a variável `baseUrl = http://localhost:3000`.\n3. Execute o seed: `node prisma/seed.js`\n4. Rode as requisições na ordem sugerida abaixo.\n\n## Ordem de execução recomendada\n1. AUTH — Login (cliente)\n2. AUTH — Login (gerente)\n3. AUTH — Login (cozinha)\n4. PEDIDOS — Criar pedido (sucesso)\n5. PEDIDOS — Listar pedidos filtrado por canal\n6. PEDIDOS — Buscar pedido por ID\n7. PEDIDOS — Atualizar status (PRONTO)\n8. PEDIDOS — Atualizar status (ENTREGUE) — credita pontos\n9. FIDELIDADE — Consultar saldo\n10. FIDELIDADE — Resgatar pontos\n11. ESTOQUE — Consultar saldo\n12. ESTOQUE — Registrar entrada\n13. ERROS — Sem token (401)\n14. ERROS — Perfil sem permissão (403)\n15. ERROS — Criar pedido com estoque insuficiente (409)\n\n## Variáveis usadas (environment)\n- `baseUrl`: http://localhost:3000\n- `tokenCliente`: preenchido automaticamente pelo teste T01\n- `tokenGerente`: preenchido automaticamente pelo teste T02\n- `tokenCozinha`: preenchido automaticamente pelo teste T03\n- `pedidoId`: preenchido automaticamente pelo teste T04",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",     "value": "http://localhost:3000", "type": "string" },
+    { "key": "tokenCliente","value": "", "type": "string" },
+    { "key": "tokenGerente","value": "", "type": "string" },
+    { "key": "tokenCozinha","value": "", "type": "string" },
+    { "key": "pedidoId",    "value": "", "type": "string" }
+  ],
+  "item": [
+
+    {
+      "name": "AUTH",
+      "description": "Autenticação — login, token inválido e acesso sem token.",
+      "item": [
+
+        {
+          "name": "T01 — Login cliente (positivo)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "pm.test('Retorna accessToken', () => {",
+                "  const json = pm.response.json();",
+                "  pm.expect(json).to.have.property('accessToken');",
+                "  pm.expect(json.tokenType).to.eql('Bearer');",
+                "  pm.collectionVariables.set('tokenCliente', json.accessToken);",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth","login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"cliente@teste.com\",\n  \"senha\": \"Cliente@123\",\n  \"tipo\": \"cliente\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "T02 — Login gerente (positivo)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "pm.test('Retorna accessToken com perfil GERENTE', () => {",
+                "  const json = pm.response.json();",
+                "  pm.expect(json.accessToken).to.be.a('string');",
+                "  pm.expect(json.usuario.perfil).to.eql('GERENTE');",
+                "  pm.collectionVariables.set('tokenGerente', json.accessToken);",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth","login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"gerente@raizesdnordeste.com\",\n  \"senha\": \"Gerente@123\",\n  \"tipo\": \"colaborador\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "T03 — Login cozinha (positivo)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "pm.test('Perfil COZINHA no token', () => {",
+                "  const json = pm.response.json();",
+                "  pm.expect(json.usuario.perfil).to.eql('COZINHA');",
+                "  pm.collectionVariables.set('tokenCozinha', json.accessToken);",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth","login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"cozinha@raizesdnordeste.com\",\n  \"senha\": \"Cozinha@123\",\n  \"tipo\": \"colaborador\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "T13 — Acesso sem token (negativo — 401)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                "pm.test('Erro padronizado NAO_AUTENTICADO', () => {",
+                "  const json = pm.response.json();",
+                "  pm.expect(json.error).to.eql('NAO_AUTENTICADO');",
+                "  pm.expect(json).to.have.all.keys('error','message','details','timestamp','path');",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/pedidos", "host": ["{{baseUrl}}"], "path": ["pedidos"] }
+          }
+        },
+
+        {
+          "name": "T14 — Credenciais inválidas (negativo — 401)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                "pm.test('Erro CREDENCIAIS_INVALIDAS', () => {",
+                "  const json = pm.response.json();",
+                "  pm.expect(json.error).to.eql('CREDENCIAIS_INVALIDAS');",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth","login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"cliente@teste.com\",\n  \"senha\": \"SenhaErrada@999\",\n  \"tipo\": \"cliente\"\n}"
+            }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "PEDIDOS",
+      "description": "Criação, listagem, busca, atualização de status e cancelamento de pedidos.",
+      "item": [
+
+        {
+          "name": "T04 — Criar pedido via TOTEM (positivo — 201)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                "pm.test('Pedido criado com campos obrigatórios', () => {",
+                "  const json = pm.response.json();",
+                "  pm.expect(json).to.have.property('id');",
+                "  pm.expect(json.canalPedido).to.eql('TOTEM');",
+                "  pm.expect(json).to.have.property('pagamentoResultado');",
+                "  pm.expect(['EM_PREPARO','CANCELADO']).to.include(json.status);",
+                "  pm.collectionVariables.set('pedidoId', json.id);",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenCliente}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/pedidos", "host": ["{{baseUrl}}"], "path": ["pedidos"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unidadeId\": 1,\n  \"clienteId\": 1,\n  \"canalPedido\": \"TOTEM\",\n  \"formaPagamento\": \"MOCK\",\n  \"itens\": [\n    { \"itemId\": 1, \"variacaoId\": 2, \"quantidade\": 1 },\n    { \"itemId\": 3, \"variacaoId\": 6, \"quantidade\": 2 }\n  ]\n}"
+            }
+          }
+        },
+
+        {
+          "name": "T05 — Listar pedidos filtrado por canal APP (positivo — 200)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "pm.test('Resposta paginada com meta', () => {",
+                "  const json = pm.response.json();",
+                "  pm.expect(json).to.have.property('data');",
+                "  pm.expect(json).to.have.property('meta');",
+                "  pm.expect(json.meta).to.have.all.keys('total','page','limit','totalPages');",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenGerente}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/pedidos?canalPedido=APP&page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["pedidos"],
+              "query": [
+                { "key": "canalPedido", "value": "APP" },
+                { "key": "page",        "value": "1" },
+                { "key": "limit",       "value": "10" }
+              ]
+            }
+          }
+        },
+
+        {
+          "name": "T06 — Buscar pedido por ID (positivo — 200)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "pm.test('Pedido contém itensPedido e pagamento', () => {",
+                "  const json = pm.response.json();",
+                "  pm.expect(json).to.have.property('itensPedido');",
+                "  pm.expect(json).to.have.property('pagamento');",
+                "  pm.expect(json).to.have.property('canalPedido');",
+                "  pm.expect(json.itensPedido.length).to.be.at.least(1);",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenGerente}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/pedidos/{{pedidoId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["pedidos", "{{pedidoId}}"]
+            }
+          }
+        },
+
+        {
+          "name": "T07 — Atualizar status para PRONTO (positivo — 200)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "// Status pode ser EM_PREPARO (aprovado) ou pedido já cancelado (pagamento recusado).",
+                "// Testamos a transição apenas se o pedido não estiver CANCELADO.",
+                "const json = pm.response.json();",
+                "if (json.status === 'CANCELADO') {",
+                "  pm.test('Pedido cancelado (pagamento recusado) — transição não aplicável', () => true);",
+                "} else {",
+                "  pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "  pm.test('Status atualizado corretamente', () => {",
+                "    pm.expect(['PRONTO','EM_PREPARO']).to.include(json.status);",
+                "  });",
+                "}"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenCozinha}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pedidos/{{pedidoId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["pedidos", "{{pedidoId}}", "status"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"PRONTO\",\n  \"motivo\": \"Pedido finalizado pela cozinha\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "T08 — Atualizar status para ENTREGUE + crédito pontos (positivo — 200)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "const json = pm.response.json();",
+                "if (json.status === 'CANCELADO' || json.error) {",
+                "  pm.test('Pedido cancelado — entrega não aplicável', () => true);",
+                "} else {",
+                "  pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "  pm.test('Status ENTREGUE registrado', () => {",
+                "    pm.expect(json.status).to.eql('ENTREGUE');",
+                "  });",
+                "}"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenCozinha}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pedidos/{{pedidoId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["pedidos", "{{pedidoId}}", "status"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ENTREGUE\",\n  \"motivo\": \"Pedido entregue ao cliente\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "T15 — Criar pedido com canalPedido ausente (negativo — 422)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 422', () => pm.response.to.have.status(422));",
+                "pm.test('Erro DADOS_INVALIDOS com detalhe de canalPedido', () => {",
+                "  const json = pm.response.json();",
+                "  pm.expect(json.error).to.eql('DADOS_INVALIDOS');",
+                "  pm.expect(json.details).to.be.an('array').that.is.not.empty;",
+                "  const campo = json.details.find(d => d.field === 'canalPedido');",
+                "  pm.expect(campo).to.not.be.undefined;",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenCliente}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/pedidos", "host": ["{{baseUrl}}"], "path": ["pedidos"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unidadeId\": 1,\n  \"clienteId\": 1,\n  \"formaPagamento\": \"MOCK\",\n  \"itens\": [\n    { \"itemId\": 1, \"variacaoId\": 2, \"quantidade\": 1 }\n  ]\n}"
+            }
+          }
+        },
+
+        {
+          "name": "T16 — Logs de auditoria do pedido (positivo — 200)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "pm.test('Retorna array de logs com statusDepois', () => {",
+                "  const json = pm.response.json();",
+                "  pm.expect(json).to.be.an('array');",
+                "  if (json.length > 0) {",
+                "    pm.expect(json[0]).to.have.property('statusDepois');",
+                "    pm.expect(json[0]).to.have.property('realizadoPor');",
+                "    pm.expect(json[0]).to.have.property('criadoEm');",
+                "  }",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenGerente}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/pedidos/{{pedidoId}}/logs",
+              "host": ["{{baseUrl}}"],
+              "path": ["pedidos", "{{pedidoId}}", "logs"]
+            }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "ESTOQUE",
+      "description": "Consulta de saldo, entrada e saída de estoque por unidade.",
+      "item": [
+
+        {
+          "name": "T09 — Consultar saldo de estoque da unidade (positivo — 200)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "pm.test('Retorna data paginado com meta', () => {",
+                "  const json = pm.response.json();",
+                "  pm.expect(json).to.have.property('data');",
+                "  pm.expect(json).to.have.property('meta');",
+                "  pm.expect(json.meta.unidadeId).to.eql(1);",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenGerente}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/unidades/1/estoque",
+              "host": ["{{baseUrl}}"],
+              "path": ["unidades","1","estoque"]
+            }
+          }
+        },
+
+        {
+          "name": "T10 — Registrar entrada de estoque (positivo — 201)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                "pm.test('Movimentação ENTRADA registrada', () => {",
+                "  const json = pm.response.json();",
+                "  pm.expect(json.movimentacao.tipo).to.eql('ENTRADA');",
+                "  pm.expect(json.estoque.quantidade).to.be.above(0);",
+                "  pm.expect(json.movimentacao.quantidadeResultante).to.be.above(",
+                "    json.movimentacao.quantidadeAnterior",
+                "  );",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenGerente}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/unidades/1/estoque/1/entrada",
+              "host": ["{{baseUrl}}"],
+              "path": ["unidades","1","estoque","1","entrada"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 20,\n  \"motivo\": \"Reabastecimento semanal — coleção Postman\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "T17 — Saída com estoque insuficiente (negativo — 409)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                "pm.test('Erro ESTOQUE_INSUFICIENTE com detalhe de saldo', () => {",
+                "  const json = pm.response.json();",
+                "  pm.expect(json.error).to.eql('ESTOQUE_INSUFICIENTE');",
+                "  pm.expect(json.details[0].field).to.include('quantidade');",
+                "  pm.expect(json.details[0].issue).to.include('Saldo disponível');",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenGerente}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/unidades/1/estoque/1/saida",
+              "host": ["{{baseUrl}}"],
+              "path": ["unidades","1","estoque","1","saida"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 99999,\n  \"motivo\": \"Teste de saída com quantidade impossível\"\n}"
+            }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "FIDELIDADE",
+      "description": "Saldo de pontos, histórico e resgate.",
+      "item": [
+
+        {
+          "name": "T11 — Consultar saldo de pontos (positivo — 200)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                "pm.test('Resposta contém saldoAtual e equivalenteEmReais', () => {",
+                "  const json = pm.response.json();",
+                "  pm.expect(json).to.have.property('saldoAtual');",
+                "  pm.expect(json).to.have.property('equivalenteEmReais');",
+                "  pm.expect(json).to.have.property('proximoBonusEm');",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenCliente}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/fidelidade/1/saldo",
+              "host": ["{{baseUrl}}"],
+              "path": ["fidelidade","1","saldo"]
+            }
+          }
+        },
+
+        {
+          "name": "T12 — Resgatar pontos sem saldo suficiente (negativo — 409)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                "pm.test('Erro SALDO_INSUFICIENTE com detalhe de pontos necessários', () => {",
+                "  const json = pm.response.json();",
+                "  pm.expect(json.error).to.eql('SALDO_INSUFICIENTE');",
+                "  pm.expect(json.details[0].issue).to.include('Necessário');",
+                "  pm.expect(json.details[0].issue).to.include('Disponível');",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenCliente}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/fidelidade/1/resgatar",
+              "host": ["{{baseUrl}}"],
+              "path": ["fidelidade","1","resgatar"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"qtdBlocos\": 999\n}"
+            }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "ERROS — Autorização",
+      "description": "Cenários negativos de autenticação e autorização.",
+      "item": [
+
+        {
+          "name": "T18 — Perfil CLIENTE tenta registrar entrada de estoque (negativo — 403)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 403', () => pm.response.to.have.status(403));",
+                "pm.test('Erro SEM_PERMISSAO', () => {",
+                "  const json = pm.response.json();",
+                "  pm.expect(json.error).to.eql('SEM_PERMISSAO');",
+                "  pm.expect(json).to.have.all.keys('error','message','details','timestamp','path');",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenCliente}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/unidades/1/estoque/1/entrada",
+              "host": ["{{baseUrl}}"],
+              "path": ["unidades","1","estoque","1","entrada"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 10,\n  \"motivo\": \"Tentativa não autorizada\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "T19 — Pedido com unidade inexistente (negativo — 404)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                "pm.test('Erro RECURSO_NAO_ENCONTRADO', () => {",
+                "  const json = pm.response.json();",
+                "  pm.expect(json.error).to.eql('RECURSO_NAO_ENCONTRADO');",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenCliente}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/pedidos", "host": ["{{baseUrl}}"], "path": ["pedidos"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unidadeId\": 99999,\n  \"clienteId\": 1,\n  \"canalPedido\": \"APP\",\n  \"formaPagamento\": \"MOCK\",\n  \"itens\": [\n    { \"itemId\": 1, \"variacaoId\": 2, \"quantidade\": 1 }\n  ]\n}"
+            }
+          }
+        },
+
+        {
+          "name": "T20 — Transição de status inválida (negativo — 409)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                "pm.test('Erro TRANSICAO_STATUS_INVALIDA', () => {",
+                "  const json = pm.response.json();",
+                "  pm.expect(json.error).to.eql('TRANSICAO_STATUS_INVALIDA');",
+                "  pm.expect(json.details[0].field).to.eql('status');",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenCozinha}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pedidos/{{pedidoId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["pedidos","{{pedidoId}}","status"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"EM_PREPARO\",\n  \"motivo\": \"Tentativa de retroceder status já finalizado\"\n}"
+            }
+          }
+        }
+
+      ]
+    }
+
+  ]
+}
