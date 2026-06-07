@@ -1,0 +1,508 @@
+// =============================================================
+// schema.prisma — Raízes do Nordeste
+// ORM: Prisma  |  Banco: PostgreSQL
+// =============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================
+// ENUMS
+// =============================================================
+
+enum PerfilCentral {
+  ADMIN
+  FINANCEIRO
+  MARKETING
+  RH_CENTRAL
+  SUPORTE
+}
+
+enum PerfilColaborador {
+  GERENTE
+  ATENDENTE
+  COZINHA
+  LIMPEZA
+}
+
+enum CanalPedido {
+  APP
+  WEB
+  TOTEM
+  BALCAO
+  PICKUP
+}
+
+enum StatusPedido {
+  AGUARDANDO_PAGAMENTO
+  EM_PREPARO
+  PRONTO
+  ENTREGUE
+  CANCELADO
+}
+
+enum StatusPagamento {
+  PENDENTE
+  APROVADO
+  RECUSADO
+}
+
+enum FormaPagamento {
+  PIX
+  CARTAO_CREDITO
+  CARTAO_DEBITO
+  VOUCHER
+  DINHEIRO
+  MOCK
+}
+
+enum StatusItem {
+  PENDENTE
+  APROVADO
+  REJEITADO
+}
+
+enum EscopoVoucher {
+  REDE
+  UNIDADES_SELECIONADAS
+  UNIDADE_PROPRIA
+}
+
+enum TipoPonto {
+  GANHO
+  BONUS_PEDIDOS
+  RESGATE
+  ESTORNO
+}
+
+enum StatusSugestao {
+  PENDENTE
+  APROVADA
+  REJEITADA
+}
+
+enum TipoNotificacao {
+  PEDIDO_CONFIRMADO
+  PAGAMENTO_APROVADO
+  PAGAMENTO_RECUSADO
+  PEDIDO_EM_PREPARO
+  PEDIDO_PRONTO
+  PEDIDO_ENTREGUE
+  PEDIDO_CANCELADO
+  PONTOS_CREDITADOS
+}
+
+enum StatusEnvio {
+  PENDENTE
+  ENVIADO
+  FALHOU
+}
+
+enum CategoriaItem {
+  LANCHE
+  BEBIDA
+  SOBREMESA
+  ACOMPANHAMENTO
+  COMBO
+  OUTRO
+}
+
+enum TipoMovimentacao {
+  ENTRADA
+  SAIDA
+  AJUSTE
+}
+
+// =============================================================
+// ADMINISTRAÇÃO CENTRAL
+// =============================================================
+
+model UsuarioCentral {
+  id           Int            @id @default(autoincrement())
+  nome         String
+  email        String         @unique
+  senhaHash    String         @map("senha_hash")
+  perfil       PerfilCentral
+  setor        String?
+  ativo        Boolean        @default(true)
+  criadoEm    DateTime       @default(now()) @map("criado_em")
+  atualizadoEm DateTime      @updatedAt @map("atualizado_em")
+
+  @@map("usuarios_central")
+}
+
+// =============================================================
+// UNIDADES
+// =============================================================
+
+model Unidade {
+  id           Int      @id @default(autoincrement())
+  nome         String
+  cnpj         String   @unique
+  cidade       String
+  estado       String
+  endereco     String
+  telefone     String?
+  ativa        Boolean  @default(true)
+  criadoEm    DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  colaboradores    Colaborador[]
+  cardapioUnidade  CardapioUnidade[]
+  estoques         Estoque[]
+  pedidos          Pedido[]
+  campanhas        Campanha[]
+  sugestoes        SugestaoItem[]
+  vouchersEmitidos Voucher[]
+  vouchersAceitos  VoucherUnidade[]
+
+  @@map("unidades")
+}
+
+// =============================================================
+// COLABORADORES
+// =============================================================
+
+model Colaborador {
+  id           Int               @id @default(autoincrement())
+  unidadeId    Int               @map("unidade_id")
+  nome         String
+  cpf          String            @unique
+  email        String            @unique
+  senhaHash    String            @map("senha_hash")
+  perfil       PerfilColaborador
+  ativo        Boolean           @default(true)
+  criadoEm    DateTime          @default(now()) @map("criado_em")
+  atualizadoEm DateTime         @updatedAt @map("atualizado_em")
+
+  unidade   Unidade        @relation(fields: [unidadeId], references: [id])
+  sugestoes SugestaoItem[]
+
+  @@map("colaboradores")
+}
+
+// =============================================================
+// CLIENTES
+// =============================================================
+
+model Cliente {
+  id               Int      @id @default(autoincrement())
+  nome             String
+  email            String   @unique
+  telefone         String?
+  cpf              String   @unique
+  senhaHash        String   @map("senha_hash")
+  aceiteLgpd       Boolean  @default(false) @map("aceite_lgpd")
+  aceiteFidelidade Boolean  @default(false) @map("aceite_fidelidade")
+  criadoEm        DateTime @default(now()) @map("criado_em")
+  atualizadoEm    DateTime @updatedAt @map("atualizado_em")
+
+  pedidos         Pedido[]
+  pontosCliente   PontosCliente?
+  historicoPontos HistoricoPontos[]
+  vouchers        Voucher[]
+  notificacoes    Notificacao[]
+
+  @@map("clientes")
+}
+
+// =============================================================
+// CARDÁPIO
+// =============================================================
+
+model ItemCardapio {
+  id                   Int           @id @default(autoincrement())
+  nome                 String
+  descricao            String?
+  categoria            CategoriaItem
+  status               StatusItem    @default(PENDENTE)
+  criadoPorUnidadeId   Int?          @map("criado_por_unidade_id")
+  criadoEm            DateTime      @default(now()) @map("criado_em")
+  atualizadoEm        DateTime      @updatedAt @map("atualizado_em")
+
+  variacoes       VariacaoItem[]
+  cardapioUnidade CardapioUnidade[]
+  estoques        Estoque[]
+  itensPedido     ItemPedido[]
+  sugestoes       SugestaoItem[]
+
+  @@map("itens_cardapio")
+}
+
+model VariacaoItem {
+  id        Int    @id @default(autoincrement())
+  itemId    Int    @map("item_id")
+  tamanho   String
+  preco     Decimal @db.Decimal(10, 2)
+
+  item        ItemCardapio @relation(fields: [itemId], references: [id])
+  itensPedido ItemPedido[]
+
+  @@unique([itemId, tamanho])
+  @@map("variacoes_item")
+}
+
+model CardapioUnidade {
+  id         Int     @id @default(autoincrement())
+  unidadeId  Int     @map("unidade_id")
+  itemId     Int     @map("item_id")
+  disponivel Boolean @default(true)
+
+  unidade Unidade      @relation(fields: [unidadeId], references: [id])
+  item    ItemCardapio @relation(fields: [itemId], references: [id])
+
+  @@unique([unidadeId, itemId])
+  @@map("cardapio_unidade")
+}
+
+// =============================================================
+// ESTOQUE
+// =============================================================
+
+model Estoque {
+  id           Int      @id @default(autoincrement())
+  unidadeId    Int      @map("unidade_id")
+  itemId       Int      @map("item_id")
+  quantidade   Int      @default(0)
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  unidade       Unidade               @relation(fields: [unidadeId], references: [id])
+  item          ItemCardapio          @relation(fields: [itemId], references: [id])
+  movimentacoes MovimentacaoEstoque[]
+
+  @@unique([unidadeId, itemId])
+  @@map("estoque")
+}
+
+model MovimentacaoEstoque {
+  id           Int              @id @default(autoincrement())
+  estoqueId    Int              @map("estoque_id")
+  unidadeId    Int              @map("unidade_id")
+  itemId       Int              @map("item_id")
+  tipo         TipoMovimentacao
+  quantidade   Int
+  quantidadeAnterior Int        @map("quantidade_anterior")
+  quantidadeResultante Int      @map("quantidade_resultante")
+  motivo       String?
+  realizadoPor String?          @map("realizado_por")
+  pedidoId     Int?             @map("pedido_id")
+  criadoEm    DateTime         @default(now()) @map("criado_em")
+
+  estoque Estoque @relation(fields: [estoqueId], references: [id])
+
+  @@map("movimentacoes_estoque")
+}
+
+// =============================================================
+// PEDIDOS
+// =============================================================
+
+model Pedido {
+  id             Int            @id @default(autoincrement())
+  unidadeId      Int            @map("unidade_id")
+  clienteId      Int?           @map("cliente_id")
+  canalPedido    CanalPedido    @map("canal_pedido")
+  status         StatusPedido   @default(AGUARDANDO_PAGAMENTO)
+  total          Decimal        @db.Decimal(10, 2)
+  formaPagamento FormaPagamento @map("forma_pagamento")
+  anonimo        Boolean        @default(false)
+  criadoEm      DateTime       @default(now()) @map("criado_em")
+  atualizadoEm  DateTime       @updatedAt @map("atualizado_em")
+
+  unidade         Unidade           @relation(fields: [unidadeId], references: [id])
+  cliente         Cliente?          @relation(fields: [clienteId], references: [id])
+  itensPedido     ItemPedido[]
+  pagamento       Pagamento?
+  historicoPontos HistoricoPontos[]
+  notificacoes    Notificacao[]
+  logsPedido      LogPedido[]
+
+  @@map("pedidos")
+}
+
+model ItemPedido {
+  id             Int     @id @default(autoincrement())
+  pedidoId       Int     @map("pedido_id")
+  itemId         Int     @map("item_id")
+  variacaoId     Int     @map("variacao_id")
+  quantidade     Int
+  precoUnitario  Decimal @db.Decimal(10, 2) @map("preco_unitario")
+
+  pedido   Pedido       @relation(fields: [pedidoId], references: [id])
+  item     ItemCardapio @relation(fields: [itemId], references: [id])
+  variacao VariacaoItem @relation(fields: [variacaoId], references: [id])
+
+  @@map("itens_pedido")
+}
+
+// =============================================================
+// PAGAMENTO
+// =============================================================
+
+model Pagamento {
+  id            Int             @id @default(autoincrement())
+  pedidoId      Int             @unique @map("pedido_id")
+  forma         FormaPagamento
+  valor         Decimal         @db.Decimal(10, 2)
+  status        StatusPagamento @default(PENDENTE)
+  respostaMock  Json?           @map("resposta_mock")
+  transacaoId   String?         @map("transacao_id")
+  processadoEm  DateTime?       @map("processado_em")
+  criadoEm     DateTime        @default(now()) @map("criado_em")
+
+  pedido Pedido @relation(fields: [pedidoId], references: [id])
+
+  @@map("pagamentos")
+}
+
+// =============================================================
+// FIDELIDADE
+// =============================================================
+
+model PontosCliente {
+  id             Int @id @default(autoincrement())
+  clienteId      Int @unique @map("cliente_id")
+  saldoAtual     Int @default(0) @map("saldo_atual")
+  totalPedidos   Int @default(0) @map("total_pedidos")
+
+  cliente         Cliente           @relation(fields: [clienteId], references: [id])
+  historicoPontos HistoricoPontos[]
+
+  @@map("pontos_cliente")
+}
+
+model HistoricoPontos {
+  id            Int       @id @default(autoincrement())
+  clienteId     Int       @map("cliente_id")
+  pedidoId      Int?      @map("pedido_id")
+  pontosClienteId Int?    @map("pontos_cliente_id")
+  tipo          TipoPonto
+  quantidade    Int
+  descricao     String?
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+
+  cliente       Cliente        @relation(fields: [clienteId], references: [id])
+  pedido        Pedido?        @relation(fields: [pedidoId], references: [id])
+  pontosCliente PontosCliente? @relation(fields: [pontosClienteId], references: [id])
+
+  @@map("historico_pontos")
+}
+
+// =============================================================
+// VOUCHERS
+// =============================================================
+
+model Voucher {
+  id                   Int           @id @default(autoincrement())
+  emitidoPorUnidadeId  Int?          @map("emitido_por_unidade_id")
+  clienteId            Int?          @map("cliente_id")
+  codigo               String        @unique
+  valor                Decimal       @db.Decimal(10, 2)
+  escopo               EscopoVoucher
+  validade             DateTime
+  usado                Boolean       @default(false)
+  criadoEm            DateTime      @default(now()) @map("criado_em")
+
+  unidade         Unidade?         @relation(fields: [emitidoPorUnidadeId], references: [id])
+  cliente         Cliente?         @relation(fields: [clienteId], references: [id])
+  voucherUnidades VoucherUnidade[]
+
+  @@map("vouchers")
+}
+
+model VoucherUnidade {
+  id         Int @id @default(autoincrement())
+  voucherId  Int @map("voucher_id")
+  unidadeId  Int @map("unidade_id")
+
+  voucher Voucher @relation(fields: [voucherId], references: [id])
+  unidade Unidade @relation(fields: [unidadeId], references: [id])
+
+  @@unique([voucherId, unidadeId])
+  @@map("voucher_unidade")
+}
+
+// =============================================================
+// CAMPANHAS
+// =============================================================
+
+model Campanha {
+  id                  Int      @id @default(autoincrement())
+  unidadeId           Int?     @map("unidade_id")
+  descricao           String
+  descontoPercentual  Decimal  @db.Decimal(5, 2) @map("desconto_percentual")
+  inicio              DateTime
+  fim                 DateTime
+  ativa               Boolean  @default(true)
+  criadoEm           DateTime @default(now()) @map("criado_em")
+
+  unidade Unidade? @relation(fields: [unidadeId], references: [id])
+
+  @@map("campanhas")
+}
+
+// =============================================================
+// SUGESTÕES DE ITENS
+// =============================================================
+
+model SugestaoItem {
+  id              Int            @id @default(autoincrement())
+  unidadeId       Int            @map("unidade_id")
+  colaboradorId   Int            @map("colaborador_id")
+  itemOriginalId  Int?           @map("item_original_id")
+  nome            String
+  descricao       String?
+  status          StatusSugestao @default(PENDENTE)
+  respostaAdmin   String?        @map("resposta_admin")
+  criadoEm       DateTime       @default(now()) @map("criado_em")
+  atualizadoEm   DateTime       @updatedAt @map("atualizado_em")
+
+  unidade       Unidade      @relation(fields: [unidadeId], references: [id])
+  colaborador   Colaborador  @relation(fields: [colaboradorId], references: [id])
+  itemOriginal  ItemCardapio? @relation(fields: [itemOriginalId], references: [id])
+
+  @@map("sugestoes_item")
+}
+
+// =============================================================
+// NOTIFICAÇÕES
+// =============================================================
+
+model Notificacao {
+  id          Int             @id @default(autoincrement())
+  clienteId   Int             @map("cliente_id")
+  pedidoId    Int?            @map("pedido_id")
+  tipo        TipoNotificacao
+  mensagem    String
+  statusEnvio StatusEnvio     @default(PENDENTE) @map("status_envio")
+  enviadaEm   DateTime?       @map("enviada_em")
+  criadoEm   DateTime        @default(now()) @map("criado_em")
+
+  cliente Cliente @relation(fields: [clienteId], references: [id])
+  pedido  Pedido? @relation(fields: [pedidoId], references: [id])
+
+  @@map("notificacoes")
+}
+
+// =============================================================
+// AUDITORIA / LOGS
+// =============================================================
+
+model LogPedido {
+  id          Int          @id @default(autoincrement())
+  pedidoId    Int          @map("pedido_id")
+  statusAntes StatusPedido? @map("status_antes")
+  statusDepois StatusPedido @map("status_depois")
+  realizadoPor String?     @map("realizado_por")
+  criadoEm   DateTime     @default(now()) @map("criado_em")
+
+  pedido Pedido @relation(fields: [pedidoId], references: [id])
+
+  @@map("logs_pedido")
+}
