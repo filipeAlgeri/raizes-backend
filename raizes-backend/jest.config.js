@@ -21,4 +21,15 @@ module.exports = {
 
   // Mostra cada teste individualmente no terminal
   verbose: true,
+
+  // Cobertura: apenas código da aplicação (exclui seed, config e testes)
+  collectCoverageFrom: [
+    'src/**/*.js',
+    '!src/__tests__/**',
+    '!src/server.js',
+    '!src/infrastructure/config/**',
+  ],
+
+  // Relatório em texto no terminal + HTML navegável em coverage/
+  coverageReporters: ['text', 'lcov', 'text-summary'],
 };

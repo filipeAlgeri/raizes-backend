@@ -305,10 +305,10 @@ Pasta ERROS — Autorização
 
 ### 9.1 Visão geral
 
-A suíte de testes automatizados cobre toda a API com **132 testes** divididos em
+A suíte de testes automatizados cobre toda a API com **136 testes** divididos em
 dois tipos:
 
-**Integração (83 testes)** — fazem requisições HTTP reais contra um banco PostgreSQL
+**Integração (87 testes)** — fazem requisições HTTP reais contra um banco PostgreSQL
 dedicado (`raizes_db_test`), sem nenhum mock de banco de dados:
 
 | Arquivo | Domínio | Testes |
@@ -319,6 +319,7 @@ dedicado (`raizes_db_test`), sem nenhum mock de banco de dados:
 | `4-estoque.test.js` | Saldo, movimentações, entrada, saída, ajuste | 14 |
 | `5-produtos.test.js` | Cardápio CRUD, roles, soft-delete | 13 |
 | `6-unidades.test.js` | Filiais — listagem pública e gestão restrita a ADMIN | 13 |
+| `7-pagamento-recusado.test.js` | Caminho de recusa de pagamento — status CANCELADO, estorno de estoque e trilha de auditoria | 4 |
 
 **Unitários (49 testes)** — testam funções puras sem banco de dados nem HTTP:
 
@@ -362,7 +363,7 @@ A cada execução o pipeline faz automaticamente:
    sequências e remove registros de execuções anteriores.
 3. **Executa o seed** — recria os dados iniciais (credenciais, cardápio,
    estoque, cliente de teste).
-4. **Roda as 8 suites em sequência** — `--runInBand` garante ordem e
+4. **Roda as 9 suites em sequência** — `--runInBand` garante ordem e
    evita conflito entre workers no mesmo banco.
 5. **Limpa o que cada arquivo criou** — cada suite remove seus próprios
    registros em `afterAll`.
@@ -370,9 +371,9 @@ A cada execução o pipeline faz automaticamente:
 Saída esperada:
 
 ```
-Test Suites: 8 passed, 8 total
-Tests:       132 passed, 132 total
-Time:        ~6s
+Test Suites: 9 passed, 9 total
+Tests:       136 passed, 136 total
+Time:        ~7s
 ```
 
 ### 9.4 Arquitetura dos testes
@@ -391,8 +392,9 @@ src/__tests__/
 ├── 2-pedidos.test.js     ← 17 testes — ciclo de vida do pedido
 ├── 3-fidelidade.test.js  ← 12 testes — pontos e resgates
 ├── 4-estoque.test.js     ← 14 testes — saldo, movimentações, entrada/saída/ajuste
-├── 5-produtos.test.js    ← 13 testes — cardápio CRUD e controle de acesso
-└── 6-unidades.test.js    ← 13 testes — gestão de filiais
+├── 5-produtos.test.js          ← 13 testes — cardápio CRUD e controle de acesso
+├── 6-unidades.test.js          ← 13 testes — gestão de filiais
+└── 7-pagamento-recusado.test.js ← 4 testes — caminho de recusa de pagamento e estorno
 ```
 
 ### 9.5 Variáveis de ambiente de teste
@@ -420,6 +422,28 @@ afeta o banco de desenvolvimento**. Diferenças em relação ao `.env`:
 | Seed client usado por fidelidade e pedidos | `2-pedidos.test.js` usa cliente próprio; seed client fica livre para `3-fidelidade.test.js` |
 | Estoque de itemId=1 alterado por pedidos | `4-estoque.test.js` usa itemId=3 (Suco Natural), intocado pelos arquivos anteriores |
 | Regras puras misturadas com código de serviço | Extraídas para `pedido.rules.js` e `fidelidade.calculos.js` — testáveis sem banco |
+| Testar caminho de pagamento recusado sem afetar outros testes | `7-pagamento-recusado.test.js` sobrescreve `process.env.PAYMENT_MOCK_MODE` para `always_reject` por teste e restaura imediatamente após — seguro em `--runInBand` |
+| itemId=2 (Tapioca) intocado até o arquivo 7 | `7-pagamento-recusado.test.js` usa itemId=2 para verificar reversão de estoque com saldo conhecido |
+
+### 9.7 Relatório de cobertura
+
+```bash
+npm run test:coverage
+```
+
+Gera o relatório no terminal e em `coverage/lcov-report/index.html` (abrível no browser).
+Resultado atual da suíte completa:
+
+```
+Statements : 81.89% ( 674/823)
+Branches   : 58.00% ( 221/381)
+Functions  : 83.33% ( 100/120)
+Lines      : 83.84% ( 659/786)
+```
+
+A cobertura de branches é menor porque alguns caminhos de erro (e.g., token expirado, erros de DB)
+são difíceis de exercitar via integração sem injeção de falhas. A cobertura de statements e linhas
+acima de 80% garante que o fluxo principal de todas as rotas está verificado.
 
 ---
 
@@ -538,7 +562,7 @@ raizes-backend/
 │   │   └── swagger/
 │   │       └── swagger.config.js
 │   │
-│   └── __tests__/             ← Suite de testes (Jest + Supertest) — 132 testes
+│   └── __tests__/             ← Suite de testes (Jest + Supertest) — 136 testes
 │       ├── helpers/
 │       │   ├── loadEnv.js     ← Carrega .env.test antes do Prisma ser importado
 │       │   ├── globalSetup.js ← Sync schema + truncate + seed (roda 1× por suite)

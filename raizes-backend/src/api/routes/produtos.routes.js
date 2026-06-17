@@ -68,6 +68,28 @@ router.get('/', index);
 
 /**
  * @swagger
+ * /produtos/sugestoes:
+ *   get:
+ *     summary: Listar sugestões de novos itens
+ *     tags: [Produtos]
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [PENDENTE, APROVADA, REJEITADA]
+ *       - in: query
+ *         name: unidadeId
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de sugestões
+ */
+router.get('/sugestoes', authMiddleware, autorizar('ADMIN', 'MARKETING', 'GERENTE'), indexSugestoes);
+
+/**
+ * @swagger
  * /produtos/{id}:
  *   get:
  *     summary: Detalhar produto
@@ -166,28 +188,6 @@ router.put('/:id', authMiddleware, autorizar('ADMIN', 'MARKETING'), validar(prod
  *         description: Produto não encontrado
  */
 router.delete('/:id', authMiddleware, autorizar('ADMIN'), destroy);
-
-/**
- * @swagger
- * /produtos/sugestoes:
- *   get:
- *     summary: Listar sugestões de novos itens
- *     tags: [Produtos]
- *     parameters:
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [PENDENTE, APROVADA, REJEITADA]
- *       - in: query
- *         name: unidadeId
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Lista de sugestões
- */
-router.get('/sugestoes', authMiddleware, autorizar('ADMIN', 'MARKETING', 'GERENTE'), indexSugestoes);
 
 /**
  * @swagger

@@ -12,6 +12,7 @@
     "studio": "prisma studio",
     "seed": "node prisma/seed.js",
     "test": "jest --runInBand --forceExit",
+    "test:coverage": "jest --runInBand --forceExit --coverage",
     "test:watch": "jest --runInBand --watch"
   },
   "prisma": {
