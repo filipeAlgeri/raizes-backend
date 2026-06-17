@@ -15,11 +15,12 @@ Projeto Multidisciplinar — Trilha Back-End — UNINTER 2026.
 6. [Iniciando a API](#6-iniciando-a-api)
 7. [Documentação Swagger](#7-documentação-swagger)
 8. [Coleção Postman — executando os testes](#8-coleção-postman--executando-os-testes)
-9. [Credenciais de teste (seed)](#9-credenciais-de-teste-seed)
-10. [Endpoints disponíveis](#10-endpoints-disponíveis)
-11. [Estrutura de pastas](#11-estrutura-de-pastas)
-12. [Decisões técnicas relevantes](#12-decisões-técnicas-relevantes)
-13. [Uso de IA](#13-uso-de-ia)
+9. [Testes automatizados — Jest + Supertest](#9-testes-automatizados--jest--supertest)
+10. [Credenciais de teste (seed)](#10-credenciais-de-teste-seed)
+11. [Endpoints disponíveis](#11-endpoints-disponíveis)
+12. [Estrutura de pastas](#12-estrutura-de-pastas)
+13. [Decisões técnicas relevantes](#13-decisões-técnicas-relevantes)
+14. [Uso de IA](#14-uso-de-ia)
 
 ---
 
@@ -287,7 +288,7 @@ Pasta ESTOQUE
 
 Pasta FIDELIDADE
   16. T11 — Consultar saldo de pontos
-  17. T12 — Resgatar sem saldo         (negativo)
+  17. T12 — totalCompra inválido (zero) (negativo)
 
 Pasta ERROS — Autorização
   18. T18 — CLIENTE tenta entrada de estoque  (negativo — 403)
@@ -300,7 +301,129 @@ Pasta ERROS — Autorização
 
 ---
 
-## 9. Credenciais de teste (seed)
+## 9. Testes automatizados — Jest + Supertest
+
+### 9.1 Visão geral
+
+A suíte de testes automatizados cobre toda a API com **132 testes** divididos em
+dois tipos:
+
+**Integração (83 testes)** — fazem requisições HTTP reais contra um banco PostgreSQL
+dedicado (`raizes_db_test`), sem nenhum mock de banco de dados:
+
+| Arquivo | Domínio | Testes |
+|---|---|---|
+| `1-auth.test.js` | Cadastro e login (cliente, colaborador, central) | 14 |
+| `2-pedidos.test.js` | Criar, buscar, atualizar status, cancelar, logs | 17 |
+| `3-fidelidade.test.js` | Saldo, histórico e resgate de pontos | 12 |
+| `4-estoque.test.js` | Saldo, movimentações, entrada, saída, ajuste | 14 |
+| `5-produtos.test.js` | Cardápio CRUD, roles, soft-delete | 13 |
+| `6-unidades.test.js` | Filiais — listagem pública e gestão restrita a ADMIN | 13 |
+
+**Unitários (49 testes)** — testam funções puras sem banco de dados nem HTTP:
+
+| Arquivo | Domínio | Testes |
+|---|---|---|
+| `unit/pedido.transicoes.test.js` | Diagrama de estados do pedido (todas as transições válidas e inválidas) | 20 |
+| `unit/fidelidade.calculos.test.js` | Cálculo de pontos, equivalente em reais, bônus e resgate | 29 |
+
+**Ferramentas:**
+
+| Ferramenta | Papel |
+|---|---|
+| [Jest](https://jestjs.io/) | Runner de testes, assertions, lifecycle hooks |
+| [Supertest](https://github.com/ladjs/supertest) | Requisições HTTP contra o app Express sem abrir porta |
+
+### 9.2 Pré-requisito único — criar o banco de testes
+
+O banco `raizes_db_test` precisa ser criado uma única vez.
+Execute como superusuário do PostgreSQL:
+
+```bash
+# Concede permissão de criar bancos ao seu usuário (apenas na primeira vez)
+sudo -u postgres psql -c "ALTER USER seu_usuario CREATEDB;"
+
+# O próximo `npm test` criará raizes_db_test automaticamente
+```
+
+> Substitua `seu_usuario` pelo mesmo usuário definido em `DATABASE_URL` no `.env`.
+
+### 9.3 Executando os testes
+
+```bash
+npm test
+```
+
+A cada execução o pipeline faz automaticamente:
+
+1. **Sincroniza o schema** — `prisma db push` garante que `raizes_db_test`
+   tem exatamente as mesmas tabelas que `raizes_db`.
+2. **Limpa todos os dados** — `TRUNCATE ... RESTART IDENTITY CASCADE` zera
+   sequências e remove registros de execuções anteriores.
+3. **Executa o seed** — recria os dados iniciais (credenciais, cardápio,
+   estoque, cliente de teste).
+4. **Roda as 8 suites em sequência** — `--runInBand` garante ordem e
+   evita conflito entre workers no mesmo banco.
+5. **Limpa o que cada arquivo criou** — cada suite remove seus próprios
+   registros em `afterAll`.
+
+Saída esperada:
+
+```
+Test Suites: 8 passed, 8 total
+Tests:       132 passed, 132 total
+Time:        ~6s
+```
+
+### 9.4 Arquitetura dos testes
+
+```
+src/__tests__/
+├── helpers/
+│   ├── loadEnv.js        ← Carrega .env.test antes do Prisma ser importado
+│   ├── globalSetup.js    ← Roda 1× antes de tudo: sync schema + truncate + seed
+│   ├── globalTeardown.js ← Placeholder (banco persiste entre execuções)
+│   └── db.js             ← Cliente Prisma exclusivo para cleanup dos testes
+├── unit/                 ← Testes unitários (sem banco, sem HTTP)
+│   ├── pedido.transicoes.test.js   ← 20 testes — diagrama de estados
+│   └── fidelidade.calculos.test.js ← 29 testes — funções puras de pontos
+├── 1-auth.test.js        ← 14 testes — cadastro e login
+├── 2-pedidos.test.js     ← 17 testes — ciclo de vida do pedido
+├── 3-fidelidade.test.js  ← 12 testes — pontos e resgates
+├── 4-estoque.test.js     ← 14 testes — saldo, movimentações, entrada/saída/ajuste
+├── 5-produtos.test.js    ← 13 testes — cardápio CRUD e controle de acesso
+└── 6-unidades.test.js    ← 13 testes — gestão de filiais
+```
+
+### 9.5 Variáveis de ambiente de teste
+
+O arquivo `.env.test` é carregado automaticamente durante `npm test` e **nunca
+afeta o banco de desenvolvimento**. Diferenças em relação ao `.env`:
+
+| Variável | Valor em `.env.test` | Motivo |
+|---|---|---|
+| `DATABASE_URL` | `…/raizes_db_test` | Banco isolado para testes |
+| `PAYMENT_MOCK_MODE` | `always_approve` | Pagamentos determinísticos |
+| `NODE_ENV` | `test` | Suprime logs internos do Prisma |
+
+### 9.6 Decisões de isolamento
+
+| Problema | Solução |
+|---|---|
+| Testes afetam dados de dev | Banco separado `raizes_db_test` |
+| Ordem entre arquivos importa | Prefixo numérico `1-`, `2-`, `3-` |
+| Testes no mesmo arquivo compartilham estado | Variáveis de módulo + `beforeAll` |
+| Testes de arquivos diferentes se isolam | Cada arquivo faz cleanup em `afterAll` |
+| Pagamento mock não-determinístico | `PAYMENT_MOCK_MODE=always_approve` |
+| Janela de idempotência de 30 s nos pedidos | Canais distintos por pedido (`WEB`, `APP`, `TOTEM`…) |
+| FK constraints no cleanup | Deleção em ordem: filhos antes dos pais |
+| Seed client usado por fidelidade e pedidos | `2-pedidos.test.js` usa cliente próprio; seed client fica livre para `3-fidelidade.test.js` |
+| Estoque de itemId=1 alterado por pedidos | `4-estoque.test.js` usa itemId=3 (Suco Natural), intocado pelos arquivos anteriores |
+| Regras puras misturadas com código de serviço | Extraídas para `pedido.rules.js` e `fidelidade.calculos.js` — testáveis sem banco |
+
+---
+
+## 10. Credenciais de teste (seed)
 
 | Usuário | E-mail | Senha | Tipo (campo `tipo` no login) |
 |---|---|---|---|
@@ -322,7 +445,7 @@ Pasta ERROS — Autorização
 
 ---
 
-## 10. Endpoints disponíveis
+## 11. Endpoints disponíveis
 
 | Método | Rota | Descrição | Perfis |
 |---|---|---|---|
@@ -355,7 +478,7 @@ Pasta ERROS — Autorização
 
 ---
 
-## 11. Estrutura de pastas
+## 12. Estrutura de pastas
 
 ```
 raizes-backend/
@@ -381,9 +504,11 @@ raizes-backend/
 │   │   │   └── estoqueService.js  ← inclui utilitários para Pedidos
 │   │   ├── pedido/
 │   │   │   ├── pedidoService.js
+│   │   │   ├── pedido.rules.js     ← Diagrama de estados (função pura exportada)
 │   │   │   └── pedido.validation.js
 │   │   └── fidelidade/
-│   │       └── fidelidadeService.js
+│   │       ├── fidelidadeService.js
+│   │       └── fidelidade.calculos.js ← Cálculos de pontos (funções puras exportadas)
 │   │
 │   ├── infrastructure/
 │   │   ├── prisma/
@@ -391,37 +516,55 @@ raizes-backend/
 │   │   └── mock/
 │   │       └── pagamentoMockService.js  ← Simulação de gateway de pagamento
 │   │
-│   └── api/
-│       ├── controllers/       ← Handlers finos — apenas input/output, sem lógica
-│       │   ├── AuthController.js
-│       │   ├── UnidadeController.js
-│       │   ├── ProdutoController.js
-│       │   ├── EstoqueController.js
-│       │   ├── PedidoController.js
-│       │   └── FidelidadeController.js
-│       ├── middlewares/
-│       │   ├── auth.middleware.js  ← JWT + autorizar(...perfis)
-│       │   ├── errorHandler.js    ← Converte AppError → JSON padronizado
-│       │   └── logger.js
-│       ├── routes/            ← Definição de rotas + Swagger JSDoc
-│       │   ├── auth.routes.js
-│       │   ├── unidades.routes.js
-│       │   ├── produtos.routes.js
-│       │   ├── estoque.routes.js
-│       │   ├── pedidos.routes.js
-│       │   └── fidelidade.routes.js
-│       └── swagger/
-│           └── swagger.config.js
+│   ├── api/
+│   │   ├── controllers/       ← Handlers finos — apenas input/output, sem lógica
+│   │   │   ├── AuthController.js
+│   │   │   ├── UnidadeController.js
+│   │   │   ├── ProdutoController.js
+│   │   │   ├── EstoqueController.js
+│   │   │   ├── PedidoController.js
+│   │   │   └── FidelidadeController.js
+│   │   ├── middlewares/
+│   │   │   ├── auth.middleware.js  ← JWT + autorizar(...perfis)
+│   │   │   ├── errorHandler.js    ← Converte AppError → JSON padronizado
+│   │   │   └── logger.js
+│   │   ├── routes/            ← Definição de rotas + Swagger JSDoc
+│   │   │   ├── auth.routes.js
+│   │   │   ├── unidades.routes.js
+│   │   │   ├── produtos.routes.js
+│   │   │   ├── estoque.routes.js
+│   │   │   ├── pedidos.routes.js
+│   │   │   └── fidelidade.routes.js
+│   │   └── swagger/
+│   │       └── swagger.config.js
+│   │
+│   └── __tests__/             ← Suite de testes (Jest + Supertest) — 132 testes
+│       ├── helpers/
+│       │   ├── loadEnv.js     ← Carrega .env.test antes do Prisma ser importado
+│       │   ├── globalSetup.js ← Sync schema + truncate + seed (roda 1× por suite)
+│       │   ├── globalTeardown.js
+│       │   └── db.js          ← Cliente Prisma exclusivo para cleanup
+│       ├── unit/              ← Testes unitários (sem banco, sem HTTP)
+│       │   ├── pedido.transicoes.test.js
+│       │   └── fidelidade.calculos.test.js
+│       ├── 1-auth.test.js     ← 14 testes — cadastro e login
+│       ├── 2-pedidos.test.js  ← 17 testes — ciclo de vida do pedido
+│       ├── 3-fidelidade.test.js ← 12 testes — pontos e resgates
+│       ├── 4-estoque.test.js  ← 14 testes — gestão de estoque
+│       ├── 5-produtos.test.js ← 13 testes — cardápio CRUD
+│       └── 6-unidades.test.js ← 13 testes — gestão de filiais
 │
-├── raizes-backend.postman_collection.json  ← 20 cenários de teste
+├── raizes-backend.postman_collection.json  ← 20 cenários de teste manuais
 ├── .env.example
+├── .env.test                  ← Variáveis exclusivas para `npm test`
+├── jest.config.js
 ├── package.json
 └── README.md
 ```
 
 ---
 
-## 12. Decisões técnicas relevantes
+## 13. Decisões técnicas relevantes
 
 **Arquitetura em camadas (Domain → Application → Infrastructure → API)**
 Separação explícita de responsabilidades: a camada `application` nunca
@@ -456,7 +599,7 @@ com quantidade anterior, resultante, tipo e responsável.
 
 ---
 
-## 13. Uso de IA
+## 14. Uso de IA
 
 Este projeto foi desenvolvido com apoio de **Claude (Anthropic)** para:
 planejamento da arquitetura, modelagem do schema Prisma, implementação

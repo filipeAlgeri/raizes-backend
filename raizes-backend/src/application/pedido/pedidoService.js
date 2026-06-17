@@ -13,6 +13,7 @@ const {
 } = require('../estoque/estoqueService');
 const { CANAIS_PRESENCIAIS } = require('./pedido.validation');
 const { creditarPontosPorPedido } = require('../fidelidade/fidelidadeService');
+const { validarTransicaoStatus } = require('./pedido.rules');
 
 // ---------------------------------------------------------------
 // Janela de idempotência: 30 segundos
@@ -61,32 +62,6 @@ function _seletorPedido() {
       },
     },
   };
-}
-
-/**
- * Verifica se a transição de status é permitida pelas regras de negócio.
- * Diagrama: AGUARDANDO_PAGAMENTO → EM_PREPARO → PRONTO → ENTREGUE
- *           qualquer estado (exceto ENTREGUE) → CANCELADO
- */
-function _validarTransicaoStatus(statusAtual, statusNovo) {
-  const transicoes = {
-    AGUARDANDO_PAGAMENTO: ['EM_PREPARO', 'CANCELADO'],
-    EM_PREPARO: ['PRONTO', 'CANCELADO'],
-    PRONTO: ['ENTREGUE', 'CANCELADO'],
-    ENTREGUE: [],
-    CANCELADO: [],
-  };
-
-  const permitidos = transicoes[statusAtual] ?? [];
-
-  if (!permitidos.includes(statusNovo)) {
-    throw new AppError(
-      `Transição de status inválida: ${statusAtual} → ${statusNovo}. Permitidos: ${permitidos.join(', ') || 'nenhum'}.`,
-      409,
-      'TRANSICAO_STATUS_INVALIDA',
-      [{ field: 'status', issue: `De "${statusAtual}" só é possível ir para: ${permitidos.join(', ') || 'nenhum'}.` }]
-    );
-  }
 }
 
 /**
@@ -478,7 +453,7 @@ async function atualizarStatus(id, novoStatus, usuarioReq, motivo) {
   if (!pedido) throw new RecursoNaoEncontradoError('Pedido');
 
   _assertAcessoUnidade(usuarioReq, pedido.unidadeId);
-  _validarTransicaoStatus(pedido.status, novoStatus);
+  validarTransicaoStatus(pedido.status, novoStatus);
 
   const realizadoPor = usuarioReq
     ? `${usuarioReq.tipo}#${usuarioReq.sub} (${usuarioReq.perfil})`
@@ -555,7 +530,7 @@ async function cancelarPedido(id, usuarioReq, motivo) {
     throw new AppError('Você não tem permissão para cancelar este pedido.', 403, 'SEM_PERMISSAO');
   }
 
-  _validarTransicaoStatus(pedido.status, 'CANCELADO');
+  validarTransicaoStatus(pedido.status, 'CANCELADO');
 
   const realizadoPor = usuarioReq
     ? `${usuarioReq.tipo}#${usuarioReq.sub} (${usuarioReq.perfil})`

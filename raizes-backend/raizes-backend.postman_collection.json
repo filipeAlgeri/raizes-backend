@@ -537,17 +537,16 @@
         },
 
         {
-          "name": "T12 — Resgatar pontos sem saldo suficiente (negativo — 409)",
+          "name": "T12 — Resgatar pontos com totalCompra inválido (negativo — 422)",
           "event": [{
             "listen": "test",
             "script": {
               "exec": [
-                "pm.test('Status 409', () => pm.response.to.have.status(409));",
-                "pm.test('Erro SALDO_INSUFICIENTE com detalhe de pontos necessários', () => {",
+                "pm.test('Status 422', () => pm.response.to.have.status(422));",
+                "pm.test('Erro DADOS_INVALIDOS com detalhe de totalCompra', () => {",
                 "  const json = pm.response.json();",
-                "  pm.expect(json.error).to.eql('SALDO_INSUFICIENTE');",
-                "  pm.expect(json.details[0].issue).to.include('Necessário');",
-                "  pm.expect(json.details[0].issue).to.include('Disponível');",
+                "  pm.expect(json.error).to.eql('DADOS_INVALIDOS');",
+                "  pm.expect(json.details[0].field).to.eql('totalCompra');",
                 "});"
               ],
               "type": "text/javascript"
@@ -566,7 +565,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"qtdBlocos\": 999\n}"
+              "raw": "{\n  \"totalCompra\": 0\n}"
             }
           }
         }

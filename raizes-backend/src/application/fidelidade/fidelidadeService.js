@@ -1,15 +1,13 @@
 const prisma = require('../../infrastructure/prisma/client');
 const { AppError, RecursoNaoEncontradoError } = require('../../domain/errors');
-
-// ---------------------------------------------------------------
-// Regras de negócio
-// ---------------------------------------------------------------
-const REAIS_POR_PONTO = 1;       // R$1,00 = 1 ponto
-const PONTOS_POR_REAIS = 1;      // cada R$1,00 gasto → 1 ponto
-const PONTOS_PARA_RESGATAR = 100; // 100 pontos = R$20,00 de desconto
-const VALOR_RESGATE = 20;        // R$ por bloco de 100 pontos
-const BONUS_A_CADA_PEDIDOS = 5;  // a cada 5 pedidos ENTREGUE → +15 pontos
-const BONUS_QUANTIDADE = 15;     // pontos de bônus
+const {
+  calcularPontosGanhos,
+  calcularEquivalenteEmReais,
+  calcularProximoBonus,
+  calcularResgate,
+  BONUS_A_CADA_PEDIDOS,
+  BONUS_QUANTIDADE,
+} = require('./fidelidade.calculos');
 
 // ---------------------------------------------------------------
 // Helpers internos
@@ -82,14 +80,10 @@ async function consultarSaldo(clienteId) {
     };
   }
 
-  const pedidosParaProximoBonus =
-    BONUS_A_CADA_PEDIDOS - (pontos.totalPedidos % BONUS_A_CADA_PEDIDOS);
-
   return {
     ...pontos,
-    equivalenteEmReais: Number((pontos.saldoAtual * VALOR_RESGATE / PONTOS_PARA_RESGATAR).toFixed(2)),
-    proximoBonusEm:
-      pedidosParaProximoBonus === BONUS_A_CADA_PEDIDOS ? 0 : pedidosParaProximoBonus,
+    equivalenteEmReais: calcularEquivalenteEmReais(pontos.saldoAtual),
+    proximoBonusEm: calcularProximoBonus(pontos.totalPedidos),
   };
 }
 
@@ -151,7 +145,7 @@ async function creditarPontosPorPedido(tx, { clienteId, pedidoId, totalPedido })
   });
   if (jaCredita) return null;
 
-  const pontosGanhos = Math.floor(Number(totalPedido) * PONTOS_POR_REAIS);
+  const pontosGanhos = calcularPontosGanhos(totalPedido);
   if (pontosGanhos <= 0) return null;
 
   const registro = await _obterOuCriarPontosCliente(tx, clienteId);
@@ -247,19 +241,7 @@ async function resgatarPontos(clienteId, totalCompra) {
       );
     }
 
-    const descontoMaximo = Number((saldoAtual * VALOR_RESGATE / PONTOS_PARA_RESGATAR).toFixed(2));
-
-    let valorDesconto, pontosUsados;
-
-    if (descontoMaximo <= totalCompraNum) {
-      // Desconto parcial: usa todos os pontos
-      valorDesconto = descontoMaximo;
-      pontosUsados = saldoAtual;
-    } else {
-      // Desconto total: usa apenas os pontos necessários para cobrir a compra
-      valorDesconto = Number(totalCompraNum.toFixed(2));
-      pontosUsados = Math.ceil(totalCompraNum * PONTOS_PARA_RESGATAR / VALOR_RESGATE);
-    }
+    const { valorDesconto, pontosUsados } = calcularResgate(saldoAtual, totalCompraNum);
 
     const novoSaldo = saldoAtual - pontosUsados;
 
