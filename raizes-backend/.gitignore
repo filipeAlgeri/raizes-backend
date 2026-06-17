@@ -22,3 +22,6 @@ Thumbs.db
 # Editor
 .vscode/
 .idea/
+
+# Relatório de cobertura (gerado por npm run test:coverage)
+coverage/
