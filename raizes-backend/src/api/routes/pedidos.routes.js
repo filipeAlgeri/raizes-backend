@@ -33,6 +33,11 @@ const VER_LOGS = ['ADMIN', 'FINANCEIRO', 'SUPORTE', 'GERENTE'];
  *       Valida estoque, congela preços, processa pagamento mock e retorna o pedido
  *       com o resultado do pagamento. Implementa janela de idempotência de 30s
  *       (mesmo cliente + unidade + canal → retorna pedido recente se existir).
+ *
+ *       **Nota sobre `clienteId`:** para o perfil `CLIENTE`, o valor informado no
+ *       body é ignorado — o sistema sempre usa o cliente autenticado no token JWT.
+ *       Apenas operadores (ATENDENTE, GERENTE, ADMIN) podem especificar `clienteId`
+ *       para criar pedidos em nome de terceiros (ex.: pedido balcão).
  *     tags: [Pedidos]
  *     security:
  *       - bearerAuth: []

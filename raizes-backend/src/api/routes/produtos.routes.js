@@ -72,6 +72,8 @@ router.get('/', index);
  *   get:
  *     summary: Listar sugestões de novos itens
  *     tags: [Produtos]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: status
@@ -85,6 +87,10 @@ router.get('/', index);
  *     responses:
  *       200:
  *         description: Lista de sugestões
+ *       401:
+ *         $ref: '#/components/responses/NaoAutenticado'
+ *       403:
+ *         $ref: '#/components/responses/SemPermissao'
  */
 router.get('/sugestoes', authMiddleware, autorizar('ADMIN', 'MARKETING', 'GERENTE'), indexSugestoes);
 
@@ -115,6 +121,8 @@ router.get('/:id', show);
  *   post:
  *     summary: Criar produto no cardápio mestre
  *     tags: [Produtos]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -144,8 +152,12 @@ router.get('/:id', show);
  *     responses:
  *       201:
  *         description: Produto criado
+ *       401:
+ *         $ref: '#/components/responses/NaoAutenticado'
+ *       403:
+ *         $ref: '#/components/responses/SemPermissao'
  *       422:
- *         description: Dados inválidos
+ *         $ref: '#/components/responses/ErroValidacao'
  */
 router.post('/', authMiddleware, autorizar('ADMIN', 'MARKETING'), validar(produtoSchema), store);
 
@@ -155,6 +167,8 @@ router.post('/', authMiddleware, autorizar('ADMIN', 'MARKETING'), validar(produt
  *   put:
  *     summary: Atualizar produto
  *     tags: [Produtos]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -164,8 +178,12 @@ router.post('/', authMiddleware, autorizar('ADMIN', 'MARKETING'), validar(produt
  *     responses:
  *       200:
  *         description: Produto atualizado
+ *       401:
+ *         $ref: '#/components/responses/NaoAutenticado'
+ *       403:
+ *         $ref: '#/components/responses/SemPermissao'
  *       404:
- *         description: Produto não encontrado
+ *         $ref: '#/components/responses/NaoEncontrado'
  */
 router.put('/:id', authMiddleware, autorizar('ADMIN', 'MARKETING'), validar(produtoSchema), update);
 
@@ -175,6 +193,8 @@ router.put('/:id', authMiddleware, autorizar('ADMIN', 'MARKETING'), validar(prod
  *   delete:
  *     summary: Remover produto (Admin)
  *     tags: [Produtos]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -184,8 +204,12 @@ router.put('/:id', authMiddleware, autorizar('ADMIN', 'MARKETING'), validar(prod
  *     responses:
  *       204:
  *         description: Produto removido
+ *       401:
+ *         $ref: '#/components/responses/NaoAutenticado'
+ *       403:
+ *         $ref: '#/components/responses/SemPermissao'
  *       404:
- *         description: Produto não encontrado
+ *         $ref: '#/components/responses/NaoEncontrado'
  */
 router.delete('/:id', authMiddleware, autorizar('ADMIN'), destroy);
 
@@ -195,6 +219,8 @@ router.delete('/:id', authMiddleware, autorizar('ADMIN'), destroy);
  *   post:
  *     summary: Criar sugestão de novo item (colaborador da unidade)
  *     tags: [Produtos]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -210,6 +236,12 @@ router.delete('/:id', authMiddleware, autorizar('ADMIN'), destroy);
  *     responses:
  *       201:
  *         description: Sugestão criada com status PENDENTE
+ *       401:
+ *         $ref: '#/components/responses/NaoAutenticado'
+ *       403:
+ *         $ref: '#/components/responses/SemPermissao'
+ *       422:
+ *         $ref: '#/components/responses/ErroValidacao'
  */
 router.post('/sugestoes', authMiddleware, autorizar('GERENTE', 'ATENDENTE'), validar(sugestaoSchema), storeSugestao);
 
@@ -219,6 +251,8 @@ router.post('/sugestoes', authMiddleware, autorizar('GERENTE', 'ATENDENTE'), val
  *   patch:
  *     summary: Aprovar sugestão de item (Admin/Marketing)
  *     tags: [Produtos]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -228,6 +262,12 @@ router.post('/sugestoes', authMiddleware, autorizar('GERENTE', 'ATENDENTE'), val
  *     responses:
  *       200:
  *         description: Sugestão aprovada
+ *       401:
+ *         $ref: '#/components/responses/NaoAutenticado'
+ *       403:
+ *         $ref: '#/components/responses/SemPermissao'
+ *       404:
+ *         $ref: '#/components/responses/NaoEncontrado'
  *       409:
  *         description: Sugestão já processada
  */
@@ -239,6 +279,8 @@ router.patch('/sugestoes/:id/aprovar', authMiddleware, autorizar('ADMIN', 'MARKE
  *   patch:
  *     summary: Negar sugestão de item (Admin/Marketing)
  *     tags: [Produtos]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -256,6 +298,12 @@ router.patch('/sugestoes/:id/aprovar', authMiddleware, autorizar('ADMIN', 'MARKE
  *     responses:
  *       200:
  *         description: Sugestão negada
+ *       401:
+ *         $ref: '#/components/responses/NaoAutenticado'
+ *       403:
+ *         $ref: '#/components/responses/SemPermissao'
+ *       404:
+ *         $ref: '#/components/responses/NaoEncontrado'
  */
 router.patch('/sugestoes/:id/negar', authMiddleware, autorizar('ADMIN', 'MARKETING'), negar);
 

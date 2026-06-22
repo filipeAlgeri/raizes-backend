@@ -52,6 +52,8 @@ router.get('/:id', show);
  *   post:
  *     summary: Criar nova unidade (Admin central)
  *     tags: [Unidades]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -77,8 +79,14 @@ router.get('/:id', show);
  *     responses:
  *       201:
  *         description: Unidade criada
+ *       401:
+ *         $ref: '#/components/responses/NaoAutenticado'
+ *       403:
+ *         $ref: '#/components/responses/SemPermissao'
  *       409:
  *         description: CNPJ já cadastrado
+ *       422:
+ *         $ref: '#/components/responses/ErroValidacao'
  */
 router.post('/', authMiddleware, autorizar('ADMIN'), validar(unidadeSchema), store);
 
@@ -88,6 +96,8 @@ router.post('/', authMiddleware, autorizar('ADMIN'), validar(unidadeSchema), sto
  *   patch:
  *     summary: Atualizar dados da unidade (Admin central)
  *     tags: [Unidades]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -97,8 +107,12 @@ router.post('/', authMiddleware, autorizar('ADMIN'), validar(unidadeSchema), sto
  *     responses:
  *       200:
  *         description: Unidade atualizada
+ *       401:
+ *         $ref: '#/components/responses/NaoAutenticado'
+ *       403:
+ *         $ref: '#/components/responses/SemPermissao'
  *       404:
- *         description: Unidade não encontrada
+ *         $ref: '#/components/responses/NaoEncontrado'
  */
 router.patch('/:id', authMiddleware, autorizar('ADMIN'), validar(unidadePatchSchema), update);
 
@@ -108,6 +122,8 @@ router.patch('/:id', authMiddleware, autorizar('ADMIN'), validar(unidadePatchSch
  *   patch:
  *     summary: Ativar/desativar item no cardápio da unidade
  *     tags: [Unidades]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: unidadeId
@@ -129,6 +145,14 @@ router.patch('/:id', authMiddleware, autorizar('ADMIN'), validar(unidadePatchSch
  *     responses:
  *       200:
  *         description: Cardápio atualizado
+ *       401:
+ *         $ref: '#/components/responses/NaoAutenticado'
+ *       403:
+ *         $ref: '#/components/responses/SemPermissao'
+ *       404:
+ *         $ref: '#/components/responses/NaoEncontrado'
+ *       422:
+ *         $ref: '#/components/responses/ErroValidacao'
  */
 router.patch(
   '/:unidadeId/cardapio',
