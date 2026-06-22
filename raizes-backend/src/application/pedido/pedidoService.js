@@ -100,13 +100,18 @@ function _assertAcessoUnidade(usuario, unidadeIdPedido) {
 async function criarPedido(dados, usuarioReq) {
   const {
     unidadeId,
-    clienteId,
     canalPedido,
     formaPagamento,
     itens,
     voucherCodigo,
     anonimo = false,
   } = dados;
+
+  // CLIENTE não pode impersonar outro cliente — força o ID do próprio token
+  let clienteId = dados.clienteId;
+  if (usuarioReq?.perfil === 'CLIENTE') {
+    clienteId = usuarioReq.sub;
+  }
 
   // --- 1. Unidade existe e está ativa ---
   const unidade = await prisma.unidade.findUnique({ where: { id: unidadeId } });
@@ -436,6 +441,15 @@ async function buscarPedido(id, usuarioReq) {
   if (!pedido) throw new RecursoNaoEncontradoError('Pedido');
 
   _assertAcessoUnidade(usuarioReq, pedido.unidade.id);
+
+  // CLIENTE só pode ver o próprio pedido
+  if (usuarioReq.perfil === 'CLIENTE' && pedido.cliente?.id !== usuarioReq.sub) {
+    throw new AppError(
+      'Você não tem permissão para visualizar este pedido.',
+      403,
+      'SEM_PERMISSAO'
+    );
+  }
 
   return pedido;
 }

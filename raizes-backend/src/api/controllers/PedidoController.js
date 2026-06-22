@@ -44,11 +44,17 @@ async function index(req, res, next) {
         ? unidadeId
         : req.usuario.unidadeId;
 
+    // CLIENTE só vê os próprios pedidos — ignora clienteId da query e força o do token
+    const filtroClienteId =
+      req.usuario.perfil === 'CLIENTE'
+        ? req.usuario.sub
+        : clienteId ? Number(clienteId) : undefined;
+
     const resultado = await pedidoService.listarPedidos({
       unidadeId: filtroUnidade ? Number(filtroUnidade) : undefined,
       status,
       canalPedido,
-      clienteId: clienteId ? Number(clienteId) : undefined,
+      clienteId: filtroClienteId,
       dataInicio,
       dataFim,
       page: page ? Number(page) : 1,

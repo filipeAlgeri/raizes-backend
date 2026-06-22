@@ -374,16 +374,26 @@ async function decrementarEstoqueParaPedido(tx, unidadeId, itens, pedidoId = nul
 
     const quantidadeResultante = saldoAtual - quantidade;
 
-    // upsert garante que o registro exista mesmo para o caso edge de saldo 0
-    const estoqueAtualizado = await tx.estoque.upsert({
-      where: { unidadeId_itemId: { unidadeId, itemId } },
-      update: { quantidade: quantidadeResultante },
-      create: { unidadeId, itemId, quantidade: quantidadeResultante },
+    // Decremento condicional atômico: o banco só aplica o UPDATE se quantidade >= solicitado
+    // no momento do lock de linha, eliminando a condição de corrida sob carga concorrente.
+    // updateMany não aceita o atalho unidadeId_itemId — usa campos individuais.
+    const resultado = await tx.estoque.updateMany({
+      where: { unidadeId, itemId, quantidade: { gte: quantidade } },
+      data: { quantidade: { decrement: quantidade } },
     });
+
+    if (resultado.count === 0) {
+      throw new EstoqueInsuficienteError([
+        {
+          field: `itens[itemId:${itemId}].quantidade`,
+          issue: `Estoque insuficiente (modificado por requisição concorrente). Tente novamente.`,
+        },
+      ]);
+    }
 
     await tx.movimentacaoEstoque.create({
       data: {
-        estoqueId: estoqueAtualizado.id,
+        estoqueId: registro.id,
         unidadeId,
         itemId,
         tipo: 'SAIDA',

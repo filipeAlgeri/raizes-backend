@@ -310,3 +310,90 @@ describe('GET /pedidos/:id/logs', () => {
     expect(res.status).toBe(403);
   });
 });
+
+// =============================================================
+// T21 — CONTROLE DE ACESSO ENTRE CLIENTES (IDOR)
+// Garante que um CLIENTE autenticado não acessa dados de outro.
+// =============================================================
+describe('T21 — IDOR: cliente não acessa pedidos de outro cliente', () => {
+  // Cliente B exclusivo deste bloco
+  const CLIENTE_B = {
+    nome: 'Tester IDOR B',
+    email: 'idor_b@raizes.test',
+    cpf: '11122233344',
+    senha: 'Teste@123',
+    aceiteLgpd: true,
+    aceiteFidelidade: false,
+  };
+
+  let tokenClienteB;
+  let clienteIdB;
+  let pedidoClienteB; // pedido criado pelo cliente B
+
+  beforeAll(async () => {
+    // Registra e faz login como cliente B
+    const resRegistro = await request(app).post('/auth/register').send(CLIENTE_B);
+    clienteIdB = resRegistro.body.id;
+
+    const resLogin = await request(app)
+      .post('/auth/login')
+      .send({ email: CLIENTE_B.email, senha: CLIENTE_B.senha, tipo: 'cliente' });
+    tokenClienteB = resLogin.body.accessToken;
+
+    // Cliente B cria um pedido próprio
+    const resPedido = await request(app)
+      .post('/pedidos')
+      .set('Authorization', `Bearer ${tokenClienteB}`)
+      .send({ ...PAYLOAD_PEDIDO, canalPedido: 'APP' });
+    pedidoClienteB = resPedido.body.id;
+  });
+
+  afterAll(async () => {
+    if (pedidoClienteB) await deletarPedidos([pedidoClienteB]);
+    await deletarClientePorEmail(CLIENTE_B.email);
+  });
+
+  it('POST /pedidos: clienteId do body é ignorado — pedido é criado para o próprio cliente → 201', async () => {
+    // Cliente A tenta criar um pedido passando o ID do cliente B no body
+    const res = await request(app)
+      .post('/pedidos')
+      .set('Authorization', `Bearer ${tokenCliente}`)
+      .send({ ...PAYLOAD_PEDIDO, clienteId: clienteIdB, canalPedido: 'TOTEM' });
+
+    expect(res.status).toBe(201);
+    // O pedido deve ter sido criado para o cliente A, não para o B
+    expect(res.body.cliente.id).toBe(clienteId);
+    expect(res.body.cliente.id).not.toBe(clienteIdB);
+
+    if (res.body.id) pedidosCriados.push(res.body.id);
+  });
+
+  it('GET /pedidos: cliente A não vê pedidos do cliente B na listagem → 200 sem dados alheios', async () => {
+    const res = await request(app)
+      .get('/pedidos')
+      .set('Authorization', `Bearer ${tokenCliente}`);
+
+    expect(res.status).toBe(200);
+    // Todos os pedidos retornados devem pertencer ao cliente A
+    const idsClientes = res.body.data.map((p) => p.cliente?.id);
+    expect(idsClientes.every((id) => id === clienteId)).toBe(true);
+  });
+
+  it('GET /pedidos/:id: cliente A não consegue ver o pedido do cliente B → 403', async () => {
+    const res = await request(app)
+      .get(`/pedidos/${pedidoClienteB}`)
+      .set('Authorization', `Bearer ${tokenCliente}`);
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('SEM_PERMISSAO');
+  });
+
+  it('GET /pedidos/:id: cliente B consegue ver o próprio pedido → 200', async () => {
+    const res = await request(app)
+      .get(`/pedidos/${pedidoClienteB}`)
+      .set('Authorization', `Bearer ${tokenClienteB}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(pedidoClienteB);
+  });
+});
