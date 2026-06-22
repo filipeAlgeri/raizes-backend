@@ -1,12 +1,16 @@
 // Simula um gateway externo de pagamento
 // Modos: "always_approve" | "always_reject" | "random"
 
-function processarPagamentoMock({ pedidoId, valor, formaPagamento, clienteId }) {
+function processarPagamentoMock({ pedidoId, valor, formaPagamento, clienteId, forcarResultado }) {
   const modo = process.env.PAYMENT_MOCK_MODE || 'random';
 
   let aprovado;
 
-  if (modo === 'always_approve') {
+  // forcarResultado (APROVADO | RECUSADO) só é respeitado fora de produção.
+  // Permite testes determinísticos de pagamento recusado via Postman/integração.
+  if (forcarResultado && process.env.NODE_ENV !== 'production') {
+    aprovado = forcarResultado === 'APROVADO';
+  } else if (modo === 'always_approve') {
     aprovado = true;
   } else if (modo === 'always_reject') {
     aprovado = false;

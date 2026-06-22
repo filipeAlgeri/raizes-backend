@@ -25,6 +25,7 @@
  *  LEITURA : ADMIN, FINANCEIRO, SUPORTE, GERENTE → 200
  *  ESCRITA : ADMIN, GERENTE → 201/200
  *  CLIENTE : sem acesso → 403
+ *  T22 — IDOR: GERENTE só acessa a própria unidade → 403 para unidade alheia
  */
 const request = require('supertest');
 const app = require('../app');
@@ -280,5 +281,54 @@ describe('PATCH /unidades/:unidadeId/estoque/:itemId/ajuste', () => {
     expect(res.body.details).toEqual(
       expect.arrayContaining([expect.objectContaining({ field: 'novaQuantidade' })])
     );
+  });
+});
+
+// =============================================================
+// T22 — IDOR: GERENTE não acessa estoque de outra unidade
+// O GERENTE do seed pertence à unidade 1 (unidadeId=1 no JWT).
+// A verificação acontece no controller, antes do service, portanto
+// a unidade 2 não precisa existir no banco para o 403 ser emitido.
+// =============================================================
+describe('T22 — IDOR: GERENTE não acessa estoque de outra unidade', () => {
+  const OUTRA_UNIDADE = 2; // GERENTE é da unidade 1
+
+  it('GET /estoque → 403 para unidade alheia', async () => {
+    const res = await request(app)
+      .get(`/unidades/${OUTRA_UNIDADE}/estoque`)
+      .set('Authorization', `Bearer ${tokenGerente}`);
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('SEM_PERMISSAO');
+  });
+
+  it('POST /entrada → 403 para unidade alheia', async () => {
+    const res = await request(app)
+      .post(`/unidades/${OUTRA_UNIDADE}/estoque/${ITEM_ID}/entrada`)
+      .set('Authorization', `Bearer ${tokenGerente}`)
+      .send({ quantidade: 10 });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('SEM_PERMISSAO');
+  });
+
+  it('POST /saida → 403 para unidade alheia', async () => {
+    const res = await request(app)
+      .post(`/unidades/${OUTRA_UNIDADE}/estoque/${ITEM_ID}/saida`)
+      .set('Authorization', `Bearer ${tokenGerente}`)
+      .send({ quantidade: 5 });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('SEM_PERMISSAO');
+  });
+
+  it('PATCH /ajuste → 403 para unidade alheia', async () => {
+    const res = await request(app)
+      .patch(`/unidades/${OUTRA_UNIDADE}/estoque/${ITEM_ID}/ajuste`)
+      .set('Authorization', `Bearer ${tokenGerente}`)
+      .send({ novaQuantidade: 100 });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('SEM_PERMISSAO');
   });
 });

@@ -305,10 +305,10 @@ Pasta ERROS — Autorização
 
 ### 9.1 Visão geral
 
-A suíte de testes automatizados cobre toda a API com **140 testes** divididos em
+A suíte de testes automatizados cobre toda a API com **145 testes** divididos em
 dois tipos:
 
-**Integração (91 testes)** — fazem requisições HTTP reais contra um banco PostgreSQL
+**Integração (96 testes)** — fazem requisições HTTP reais contra um banco PostgreSQL
 dedicado (`raizes_db_test`), sem nenhum mock de banco de dados:
 
 | Arquivo | Domínio | Testes |
@@ -316,9 +316,9 @@ dedicado (`raizes_db_test`), sem nenhum mock de banco de dados:
 | `1-auth.test.js` | Cadastro e login (cliente, colaborador, central) | 14 |
 | `2-pedidos.test.js` | Criar, buscar, atualizar status, cancelar, logs, controle de acesso entre clientes (IDOR) | 21 |
 | `3-fidelidade.test.js` | Saldo, histórico e resgate de pontos | 12 |
-| `4-estoque.test.js` | Saldo, movimentações, entrada, saída, ajuste | 14 |
+| `4-estoque.test.js` | Saldo, movimentações, entrada, saída, ajuste, IDOR cross-unit (T22) | 18 |
 | `5-produtos.test.js` | Cardápio CRUD, roles, soft-delete | 13 |
-| `6-unidades.test.js` | Filiais — listagem pública e gestão restrita a ADMIN | 13 |
+| `6-unidades.test.js` | Filiais — listagem pública, gestão restrita a ADMIN, IDOR cardápio (T23) | 14 |
 | `7-pagamento-recusado.test.js` | Caminho de recusa de pagamento — status CANCELADO, estorno de estoque e trilha de auditoria | 4 |
 
 **Unitários (49 testes)** — testam funções puras sem banco de dados nem HTTP:
@@ -372,7 +372,7 @@ Saída esperada:
 
 ```
 Test Suites: 9 passed, 9 total
-Tests:       140 passed, 140 total
+Tests:       145 passed, 145 total
 Time:        ~8s
 ```
 
@@ -391,9 +391,9 @@ src/__tests__/
 ├── 1-auth.test.js        ← 14 testes — cadastro e login
 ├── 2-pedidos.test.js     ← 21 testes — ciclo de vida do pedido + controle de acesso (IDOR)
 ├── 3-fidelidade.test.js  ← 12 testes — pontos e resgates
-├── 4-estoque.test.js     ← 14 testes — saldo, movimentações, entrada/saída/ajuste
+├── 4-estoque.test.js     ← 18 testes — saldo, movimentações, entrada/saída/ajuste + IDOR (T22)
 ├── 5-produtos.test.js          ← 13 testes — cardápio CRUD e controle de acesso
-├── 6-unidades.test.js          ← 13 testes — gestão de filiais
+├── 6-unidades.test.js          ← 14 testes — gestão de filiais + IDOR cardápio (T23)
 └── 7-pagamento-recusado.test.js ← 4 testes — caminho de recusa de pagamento e estorno
 ```
 
@@ -569,7 +569,7 @@ raizes-backend/
 │   │   └── swagger/
 │   │       └── swagger.config.js
 │   │
-│   └── __tests__/             ← Suite de testes (Jest + Supertest) — 140 testes
+│   └── __tests__/             ← Suite de testes (Jest + Supertest) — 145 testes
 │       ├── helpers/
 │       │   ├── loadEnv.js     ← Carrega .env.test antes do Prisma ser importado
 │       │   ├── globalSetup.js ← Sync schema + truncate + seed (roda 1× por suite)
@@ -581,9 +581,9 @@ raizes-backend/
 │       ├── 1-auth.test.js     ← 14 testes — cadastro e login
 │       ├── 2-pedidos.test.js  ← 21 testes — ciclo de vida do pedido + IDOR
 │       ├── 3-fidelidade.test.js ← 12 testes — pontos e resgates
-│       ├── 4-estoque.test.js  ← 14 testes — gestão de estoque
+│       ├── 4-estoque.test.js  ← 18 testes — gestão de estoque + IDOR (T22)
 │       ├── 5-produtos.test.js ← 13 testes — cardápio CRUD
-│       ├── 6-unidades.test.js ← 13 testes — gestão de filiais
+│       ├── 6-unidades.test.js ← 14 testes — gestão de filiais + IDOR cardápio (T23)
 │       └── 7-pagamento-recusado.test.js ← 4 testes — recusa de pagamento e estorno
 │
 ├── raizes-backend.postman_collection.json  ← 20 cenários de teste manuais

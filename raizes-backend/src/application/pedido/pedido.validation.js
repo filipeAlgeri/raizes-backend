@@ -71,6 +71,9 @@ const criarPedidoSchema = z
 
     voucherCodigo: z.string().optional(),
     anonimo: z.boolean().optional().default(false),
+    // Campo de teste: permite forçar resultado do mock fora de produção.
+    // Ignorado pelo pagamentoMockService quando NODE_ENV === 'production'.
+    forcarResultado: z.enum(['APROVADO', 'RECUSADO']).optional(),
   })
   .superRefine((data, ctx) => {
     // Dinheiro só é aceito em canais presenciais

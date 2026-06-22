@@ -105,6 +105,7 @@ async function criarPedido(dados, usuarioReq) {
     itens,
     voucherCodigo,
     anonimo = false,
+    forcarResultado,
   } = dados;
 
   // CLIENTE não pode impersonar outro cliente — força o ID do próprio token
@@ -318,6 +319,7 @@ async function criarPedido(dados, usuarioReq) {
     valor: total,
     formaPagamento,
     clienteId: clienteId || null,
+    forcarResultado,
   });
 
   const pagamentoAprovado = resultadoPagamento.status === 'APROVADO';

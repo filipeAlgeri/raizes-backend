@@ -2,10 +2,11 @@
  * Testes de integração — Unidades
  *
  * O que testamos aqui:
- *  - GET   /unidades     → listar unidades ativas (rota pública, sem auth)
- *  - GET   /unidades/:id → detalhar unidade (rota pública)
- *  - POST  /unidades     → criar nova unidade (ADMIN apenas)
- *  - PATCH /unidades/:id → atualizar dados de unidade (ADMIN apenas)
+ *  - GET   /unidades            → listar unidades ativas (rota pública, sem auth)
+ *  - GET   /unidades/:id        → detalhar unidade (rota pública)
+ *  - POST  /unidades            → criar nova unidade (ADMIN apenas)
+ *  - PATCH /unidades/:id        → atualizar dados de unidade (ADMIN apenas)
+ *  - PATCH /unidades/:id/cardapio → ativar/desativar item no cardápio (GERENTE/ADMIN)
  *
  * Estratégia de isolamento:
  *  - GET é público: não requer token.
@@ -21,6 +22,7 @@
  *  GET    : público (sem token)
  *  POST   : ADMIN ✓ | GERENTE → 403 | CLIENTE → 403 | sem token → 401
  *  PATCH  : ADMIN ✓ | GERENTE → 403
+ *  T23 — IDOR cardápio: GERENTE só configura a própria unidade → 403 para unidade alheia
  */
 const request = require('supertest');
 const app = require('../app');
@@ -237,5 +239,24 @@ describe('PATCH /unidades/:id', () => {
 
     expect(res.status).toBe(404);
     expect(res.body.error).toBe('RECURSO_NAO_ENCONTRADO');
+  });
+});
+
+// =============================================================
+// T23 — IDOR: GERENTE não configura cardápio de outra unidade
+// O GERENTE do seed pertence à unidade 1 (unidadeId=1 no JWT).
+// A verificação acontece no controller, antes do service.
+// =============================================================
+describe('T23 — IDOR: GERENTE não configura cardápio de outra unidade', () => {
+  const OUTRA_UNIDADE = 2; // GERENTE é da unidade 1
+
+  it('PATCH /cardapio → 403 para unidade alheia', async () => {
+    const res = await request(app)
+      .patch(`/unidades/${OUTRA_UNIDADE}/cardapio`)
+      .set('Authorization', `Bearer ${tokenGerente}`)
+      .send({ itemId: 1, disponivel: false });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('SEM_PERMISSAO');
   });
 });
