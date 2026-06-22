@@ -305,16 +305,16 @@ Pasta ERROS — Autorização
 
 ### 9.1 Visão geral
 
-A suíte de testes automatizados cobre toda a API com **136 testes** divididos em
+A suíte de testes automatizados cobre toda a API com **140 testes** divididos em
 dois tipos:
 
-**Integração (87 testes)** — fazem requisições HTTP reais contra um banco PostgreSQL
+**Integração (91 testes)** — fazem requisições HTTP reais contra um banco PostgreSQL
 dedicado (`raizes_db_test`), sem nenhum mock de banco de dados:
 
 | Arquivo | Domínio | Testes |
 |---|---|---|
 | `1-auth.test.js` | Cadastro e login (cliente, colaborador, central) | 14 |
-| `2-pedidos.test.js` | Criar, buscar, atualizar status, cancelar, logs | 17 |
+| `2-pedidos.test.js` | Criar, buscar, atualizar status, cancelar, logs, controle de acesso entre clientes (IDOR) | 21 |
 | `3-fidelidade.test.js` | Saldo, histórico e resgate de pontos | 12 |
 | `4-estoque.test.js` | Saldo, movimentações, entrada, saída, ajuste | 14 |
 | `5-produtos.test.js` | Cardápio CRUD, roles, soft-delete | 13 |
@@ -372,8 +372,8 @@ Saída esperada:
 
 ```
 Test Suites: 9 passed, 9 total
-Tests:       136 passed, 136 total
-Time:        ~7s
+Tests:       140 passed, 140 total
+Time:        ~8s
 ```
 
 ### 9.4 Arquitetura dos testes
@@ -389,7 +389,7 @@ src/__tests__/
 │   ├── pedido.transicoes.test.js   ← 20 testes — diagrama de estados
 │   └── fidelidade.calculos.test.js ← 29 testes — funções puras de pontos
 ├── 1-auth.test.js        ← 14 testes — cadastro e login
-├── 2-pedidos.test.js     ← 17 testes — ciclo de vida do pedido
+├── 2-pedidos.test.js     ← 21 testes — ciclo de vida do pedido + controle de acesso (IDOR)
 ├── 3-fidelidade.test.js  ← 12 testes — pontos e resgates
 ├── 4-estoque.test.js     ← 14 testes — saldo, movimentações, entrada/saída/ajuste
 ├── 5-produtos.test.js          ← 13 testes — cardápio CRUD e controle de acesso
@@ -400,7 +400,14 @@ src/__tests__/
 ### 9.5 Variáveis de ambiente de teste
 
 O arquivo `.env.test` é carregado automaticamente durante `npm test` e **nunca
-afeta o banco de desenvolvimento**. Diferenças em relação ao `.env`:
+afeta o banco de desenvolvimento**. Ele está no `.gitignore` — crie o seu a
+partir do exemplo:
+
+```bash
+cp .env.test.example .env.test
+```
+
+Diferenças em relação ao `.env`:
 
 | Variável | Valor em `.env.test` | Motivo |
 |---|---|---|
@@ -562,7 +569,7 @@ raizes-backend/
 │   │   └── swagger/
 │   │       └── swagger.config.js
 │   │
-│   └── __tests__/             ← Suite de testes (Jest + Supertest) — 136 testes
+│   └── __tests__/             ← Suite de testes (Jest + Supertest) — 140 testes
 │       ├── helpers/
 │       │   ├── loadEnv.js     ← Carrega .env.test antes do Prisma ser importado
 │       │   ├── globalSetup.js ← Sync schema + truncate + seed (roda 1× por suite)
@@ -572,15 +579,16 @@ raizes-backend/
 │       │   ├── pedido.transicoes.test.js
 │       │   └── fidelidade.calculos.test.js
 │       ├── 1-auth.test.js     ← 14 testes — cadastro e login
-│       ├── 2-pedidos.test.js  ← 17 testes — ciclo de vida do pedido
+│       ├── 2-pedidos.test.js  ← 21 testes — ciclo de vida do pedido + IDOR
 │       ├── 3-fidelidade.test.js ← 12 testes — pontos e resgates
 │       ├── 4-estoque.test.js  ← 14 testes — gestão de estoque
 │       ├── 5-produtos.test.js ← 13 testes — cardápio CRUD
-│       └── 6-unidades.test.js ← 13 testes — gestão de filiais
+│       ├── 6-unidades.test.js ← 13 testes — gestão de filiais
+│       └── 7-pagamento-recusado.test.js ← 4 testes — recusa de pagamento e estorno
 │
 ├── raizes-backend.postman_collection.json  ← 20 cenários de teste manuais
 ├── .env.example
-├── .env.test                  ← Variáveis exclusivas para `npm test`
+├── .env.test.example          ← Estrutura de variáveis para testes (não contém valores reais)
 ├── jest.config.js
 ├── package.json
 └── README.md
@@ -620,6 +628,30 @@ com quantidade anterior, resultante, tipo e responsável.
 **Pagamento mock configurável via .env**
 `PAYMENT_MOCK_MODE=always_approve` para testes determinísticos;
 `random` para simular cenários reais com falha.
+
+**Proteção contra IDOR em pedidos**
+Endpoints de pedido aplicam controle de propriedade para o perfil `CLIENTE`:
+`POST /pedidos` ignora o `clienteId` do body e usa o do token; `GET /pedidos`
+força filtro pelo `clienteId` do token; `GET /pedidos/:id` retorna 403 se o
+pedido não pertencer ao cliente autenticado.
+
+**Proteção contra IDOR em estoque e cardápio**
+`GERENTE` só pode consultar e movimentar o estoque da própria unidade.
+`EstoqueController` aplica `_verificarAcessoUnidade` em todos os 6 handlers;
+`configurarCardapio` aplica o mesmo controle. Perfis centrais (`ADMIN`,
+`FINANCEIRO`, `SUPORTE`) não são restritos por unidade.
+
+**Operações de estoque livres de condição de corrida**
+Tanto `decrementarEstoqueParaPedido` quanto `registrarSaida` usam
+`updateMany` com filtro condicional `quantidade: { gte: solicitado }` no
+`WHERE` do UPDATE — o banco garante atomicamente que o decremento só ocorre
+se o saldo for suficiente no momento do lock de linha, sem janela de
+inconsistência sob carga concorrente. Uma leitura `findUnique` pós-update
+assegura que o log de auditoria registre os valores reais.
+
+**Handler 404 global**
+Rota não mapeada retorna `{ error: "ROTA_NAO_ENCONTRADA", ... }` com status
+404, antes de chegar ao `errorHandler` genérico.
 
 ---
 
