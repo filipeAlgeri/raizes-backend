@@ -203,13 +203,29 @@ async function registrarSaida({ unidadeId, itemId, quantidade, motivo, realizado
       ]);
     }
 
-    const quantidadeResultante = quantidadeAnterior - quantidade;
+    // Decremento condicional atômico — mesmo padrão de decrementarEstoqueParaPedido
+    const resultado = await tx.estoque.updateMany({
+      where: { unidadeId, itemId, quantidade: { gte: quantidade } },
+      data: { quantidade: { decrement: quantidade } },
+    });
 
-    const estoqueAtualizado = await tx.estoque.update({
-      where: { id: registro.id },
-      data: { quantidade: quantidadeResultante },
+    if (resultado.count === 0) {
+      throw new EstoqueInsuficienteError([
+        {
+          field: 'quantidade',
+          issue: `Estoque insuficiente (modificado por requisição concorrente). Tente novamente.`,
+        },
+      ]);
+    }
+
+    // Leitura pós-update: necessária para o retorno da API e garante log de auditoria preciso
+    const estoqueAtualizado = await tx.estoque.findUnique({
+      where: { unidadeId_itemId: { unidadeId, itemId } },
       select: { id: true, quantidade: true, atualizadoEm: true },
     });
+
+    const quantidadeResultante = estoqueAtualizado.quantidade;
+    const quantidadeAnteriorReal = quantidadeResultante + quantidade;
 
     const movimentacao = await tx.movimentacaoEstoque.create({
       data: {
@@ -218,7 +234,7 @@ async function registrarSaida({ unidadeId, itemId, quantidade, motivo, realizado
         itemId,
         tipo: 'SAIDA',
         quantidade,
-        quantidadeAnterior,
+        quantidadeAnterior: quantidadeAnteriorReal,
         quantidadeResultante,
         motivo: motivo || 'Saída de estoque',
         realizadoPor: realizadoPor || null,

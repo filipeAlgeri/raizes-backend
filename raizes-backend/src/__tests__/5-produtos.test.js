@@ -144,17 +144,15 @@ describe('POST /produtos', () => {
     produtosCriados.push(res.body.id);
   });
 
-  it('gerente cria produto → 201 + status PENDENTE (aguarda aprovação da central)', async () => {
-    // Gerente tem unidadeId → criadoPorUnidadeId é preenchido → produto criado como PENDENTE
+  it('gerente não pode criar produto no cardápio mestre → 403 (use sugestão de item)', async () => {
+    // GERENTE foi removido do POST /produtos; deve usar POST /produtos/sugestoes
     const res = await request(app)
       .post('/produtos')
       .set('Authorization', `Bearer ${tokenGerente}`)
       .send({ ...PAYLOAD_PRODUTO, nome: 'Produto Pendente Jest' });
 
-    expect(res.status).toBe(201);
-    expect(res.body.status).toBe('PENDENTE');
-
-    produtosCriados.push(res.body.id);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('SEM_PERMISSAO');
   });
 
   it('produto sem variações → 422 VALIDACAO_INVALIDA (Zod: min 1 variação)', async () => {

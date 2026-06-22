@@ -3,7 +3,7 @@ const router = express.Router();
 const { index, show, store, update } = require('../controllers/UnidadeController');
 const { configurarCardapio } = require('../controllers/ProdutoController');
 const { authMiddleware, autorizar } = require('../middlewares/auth.middleware');
-const { unidadeSchema, cardapioUnidadeSchema, validar } = require('../../application/cardapio/cardapio.validation');
+const { unidadeSchema, unidadePatchSchema, cardapioUnidadeSchema, validar } = require('../../application/cardapio/cardapio.validation');
 
 /**
  * @swagger
@@ -100,7 +100,7 @@ router.post('/', authMiddleware, autorizar('ADMIN'), validar(unidadeSchema), sto
  *       404:
  *         description: Unidade não encontrada
  */
-router.patch('/:id', authMiddleware, autorizar('ADMIN'), update);
+router.patch('/:id', authMiddleware, autorizar('ADMIN'), validar(unidadePatchSchema), update);
 
 /**
  * @swagger

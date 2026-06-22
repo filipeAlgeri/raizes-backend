@@ -31,6 +31,14 @@ app.use('/pedidos', pedidosRoutes);
 app.use('/pagamentos', pagamentosRoutes);
 app.use('/fidelidade', fidelidadeRoutes);
 
+app.use((req, res) => res.status(404).json({
+  error: 'ROTA_NAO_ENCONTRADA',
+  message: 'A rota solicitada não existe.',
+  details: [],
+  timestamp: new Date().toISOString(),
+  path: req.originalUrl,
+}));
+
 app.use(errorHandler);
 
 module.exports = app;

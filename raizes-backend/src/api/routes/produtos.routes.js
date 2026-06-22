@@ -147,7 +147,7 @@ router.get('/:id', show);
  *       422:
  *         description: Dados inválidos
  */
-router.post('/', authMiddleware, autorizar('ADMIN', 'MARKETING', 'GERENTE'), validar(produtoSchema), store);
+router.post('/', authMiddleware, autorizar('ADMIN', 'MARKETING'), validar(produtoSchema), store);
 
 /**
  * @swagger

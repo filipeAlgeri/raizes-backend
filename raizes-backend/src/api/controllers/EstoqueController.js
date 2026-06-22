@@ -1,11 +1,28 @@
 const estoqueService = require('../../application/estoque/estoqueService');
 
+// GERENTE só pode acessar a própria unidade; ADMIN acessa qualquer uma.
+// Retorna true e envia 403 se o acesso for negado.
+function _verificarAcessoUnidade(req, res, unidadeId) {
+  if (req.usuario.perfil === 'GERENTE' && req.usuario.unidadeId !== unidadeId) {
+    res.status(403).json({
+      error: 'SEM_PERMISSAO',
+      message: 'Você só pode gerenciar a própria unidade.',
+      details: [],
+      timestamp: new Date().toISOString(),
+      path: req.originalUrl,
+    });
+    return true;
+  }
+  return false;
+}
+
 // ---------------------------------------------------------------
 // GET /unidades/:unidadeId/estoque
 // ---------------------------------------------------------------
 async function index(req, res, next) {
   try {
     const unidadeId = Number(req.params.unidadeId);
+    if (_verificarAcessoUnidade(req, res, unidadeId)) return;
     const { page, limit } = req.query;
 
     const resultado = await estoqueService.consultarEstoquePorUnidade(unidadeId, {
@@ -25,6 +42,7 @@ async function index(req, res, next) {
 async function show(req, res, next) {
   try {
     const unidadeId = Number(req.params.unidadeId);
+    if (_verificarAcessoUnidade(req, res, unidadeId)) return;
     const itemId = Number(req.params.itemId);
 
     const saldo = await estoqueService.consultarSaldoItem(unidadeId, itemId);
@@ -40,12 +58,12 @@ async function show(req, res, next) {
 async function entrada(req, res, next) {
   try {
     const unidadeId = Number(req.params.unidadeId);
+    if (_verificarAcessoUnidade(req, res, unidadeId)) return;
     const itemId = Number(req.params.itemId);
     const { quantidade, motivo } = req.body;
 
-    // Identifica quem realizou a movimentação a partir do token JWT
     const realizadoPor = req.usuario
-      ? `${req.usuario.tipo}#${req.usuario.id} (${req.usuario.perfil})`
+      ? `${req.usuario.tipo}#${req.usuario.sub} (${req.usuario.perfil})`
       : null;
 
     const resultado = await estoqueService.registrarEntrada({
@@ -68,11 +86,12 @@ async function entrada(req, res, next) {
 async function saida(req, res, next) {
   try {
     const unidadeId = Number(req.params.unidadeId);
+    if (_verificarAcessoUnidade(req, res, unidadeId)) return;
     const itemId = Number(req.params.itemId);
     const { quantidade, motivo } = req.body;
 
     const realizadoPor = req.usuario
-      ? `${req.usuario.tipo}#${req.usuario.id} (${req.usuario.perfil})`
+      ? `${req.usuario.tipo}#${req.usuario.sub} (${req.usuario.perfil})`
       : null;
 
     const resultado = await estoqueService.registrarSaida({
@@ -95,11 +114,12 @@ async function saida(req, res, next) {
 async function ajuste(req, res, next) {
   try {
     const unidadeId = Number(req.params.unidadeId);
+    if (_verificarAcessoUnidade(req, res, unidadeId)) return;
     const itemId = Number(req.params.itemId);
     const { novaQuantidade, motivo } = req.body;
 
     const realizadoPor = req.usuario
-      ? `${req.usuario.tipo}#${req.usuario.id} (${req.usuario.perfil})`
+      ? `${req.usuario.tipo}#${req.usuario.sub} (${req.usuario.perfil})`
       : null;
 
     const resultado = await estoqueService.registrarAjuste({
@@ -122,6 +142,7 @@ async function ajuste(req, res, next) {
 async function movimentacoes(req, res, next) {
   try {
     const unidadeId = Number(req.params.unidadeId);
+    if (_verificarAcessoUnidade(req, res, unidadeId)) return;
     const { itemId, tipo, page, limit } = req.query;
 
     const resultado = await estoqueService.listarMovimentacoes(

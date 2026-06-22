@@ -87,6 +87,18 @@ async function negar(req, res, next) {
 async function configurarCardapio(req, res, next) {
   try {
     const unidadeId = Number(req.params.unidadeId);
+
+    // GERENTE só pode configurar o cardápio da própria unidade
+    if (req.usuario.perfil === 'GERENTE' && req.usuario.unidadeId !== unidadeId) {
+      return res.status(403).json({
+        error: 'SEM_PERMISSAO',
+        message: 'Você só pode gerenciar o cardápio da própria unidade.',
+        details: [],
+        timestamp: new Date().toISOString(),
+        path: req.originalUrl,
+      });
+    }
+
     const resultado = await configurarCardapioUnidade({ ...req.body, unidadeId });
     return res.status(200).json(resultado);
   } catch (err) { next(err); }

@@ -54,8 +54,11 @@ function validar(schema) {
   };
 }
 
+const unidadePatchSchema = unidadeSchema.partial();
+
 module.exports = {
   unidadeSchema,
+  unidadePatchSchema,
   produtoSchema,
   sugestaoSchema,
   cardapioUnidadeSchema,
