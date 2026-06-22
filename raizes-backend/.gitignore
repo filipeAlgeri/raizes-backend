@@ -3,6 +3,7 @@ node_modules/
 
 # Variáveis de ambiente (nunca commitar)
 .env
+.env.test
 .env.bak
 .env.local
 .env.*.local
