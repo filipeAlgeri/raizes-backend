@@ -146,6 +146,11 @@ Ou pela linha de comando:
 psql -U postgres -c "CREATE DATABASE raizes_db;"
 ```
 
+> **Se for executar a suíte de testes automatizados**, crie também o banco
+> `raizes_db_test` e configure o `.env.test` conforme descrito nas
+> [seções 9.2](#92-pré-requisito-único--criar-o-banco-de-testes) e
+> [9.5](#95-variáveis-de-ambiente-de-teste).
+
 ### 5.2 Execute as migrations
 
 ```bash
@@ -514,6 +519,7 @@ acima de 80% garante que o fluxo principal de todas as rotas está verificado.
 ```
 raizes-backend/
 ├── prisma/
+│   ├── migrations/            ← Histórico de migrations versionado pelo Prisma
 │   ├── schema.prisma          ← 19 models, 14 enums — DER técnico completo
 │   └── seed.js                ← Dados iniciais reproduzíveis
 │
