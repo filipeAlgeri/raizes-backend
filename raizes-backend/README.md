@@ -488,8 +488,8 @@ acima de 80% garante que o fluxo principal de todas as rotas está verificado.
 | POST | `/auth/login` | Autenticação — retorna JWT | público |
 | POST | `/auth/cadastro` | Cadastro de cliente | público |
 | POST | `/auth/logout` | Encerrar sessão | autenticado |
-| GET | `/unidades` | Listar unidades | ADMIN, GERENTE |
-| GET | `/unidades/:id` | Buscar unidade | ADMIN, GERENTE |
+| GET | `/unidades` | Listar unidades | público |
+| GET | `/unidades/:id` | Buscar unidade | público |
 | POST | `/unidades` | Criar unidade | ADMIN |
 | PATCH | `/unidades/:id` | Atualizar unidade | ADMIN |
 | GET | `/produtos` | Listar itens do cardápio | todos |
@@ -511,6 +511,11 @@ acima de 80% garante que o fluxo principal de todas as rotas está verificado.
 | GET | `/fidelidade/:clienteId/saldo` | Saldo de pontos | CLIENTE (próprio), GERENTE |
 | GET | `/fidelidade/:clienteId/historico` | Histórico de pontos | CLIENTE (próprio), GERENTE |
 | POST | `/fidelidade/:clienteId/resgatar` | Resgatar pontos | CLIENTE (próprio), ADMIN |
+
+> **Nota sobre `/pagamentos`:** Não há endpoint separado nesse recurso. O resultado do
+> gateway mock é processado e retornado dentro da resposta de `POST /pedidos`, na mesma
+> transação atômica que cria o pedido e decrementa o estoque. Ver decisão de design na
+> seção 13.
 
 ---
 
@@ -654,6 +659,14 @@ Tanto `decrementarEstoqueParaPedido` quanto `registrarSaida` usam
 se o saldo for suficiente no momento do lock de linha, sem janela de
 inconsistência sob carga concorrente. Uma leitura `findUnique` pós-update
 assegura que o log de auditoria registre os valores reais.
+
+**Pagamento embutido em `POST /pedidos` — sem endpoint `/pagamentos` separado**
+O processamento do gateway mock (`pagamentoMockService.js`) acontece dentro do
+próprio serviço de criação de pedido, na mesma `prisma.$transaction` que cria o
+pedido, decrementa o estoque e registra a auditoria. O resultado (status aprovado
+ou recusado, NSU, valor cobrado) é retornado no campo `pagamentoResultado` da
+resposta de `POST /pedidos`. Essa abordagem garante consistência transacional e
+elimina a necessidade de uma segunda chamada do cliente para confirmar o pagamento.
 
 **Handler 404 global**
 Rota não mapeada retorna `{ error: "ROTA_NAO_ENCONTRADA", ... }` com status
