@@ -597,6 +597,12 @@ raizes-backend/
 │       ├── 6-unidades.test.js ← 14 testes — gestão de filiais + IDOR cardápio (T23)
 │       └── 7-pagamento-recusado.test.js ← 4 testes — recusa de pagamento e estorno
 │
+├── diagramas/                              ← Diagramas UML/ER (fonte Mermaid + PNG exportado)
+│   ├── der.mmd / der.png                  ← Diagrama Entidade-Relacionamento completo
+│   ├── classes.mmd / classes.png          ← Diagrama de classes da aplicação
+│   ├── casos_de_uso.mmd / casos_de_uso.png ← Diagrama de casos de uso
+│   └── sequencia.mmd / sequencia.png      ← Diagrama de sequência do fluxo de pedido
+│
 ├── raizes-backend.postman_collection.json  ← 20 cenários de teste manuais
 ├── .env.example
 ├── .env.test.example          ← Estrutura de variáveis para testes (não contém valores reais)
