@@ -1,0 +1,149 @@
+classDiagram
+  class Unidade {
+    +int id
+    +string nome
+    +string cnpj
+    +string cidade
+    +string estado
+    +boolean ativa
+    +listarPedidos()
+    +consultarEstoque()
+    +configurarCardapio()
+  }
+  class ItemCardapio {
+    +int id
+    +string nome
+    +string categoria
+    +StatusItem status
+    +List variacoes
+    +aprovar()
+    +rejeitar()
+    +estaDisponivel() bool
+  }
+  class VariacaoItem {
+    +int id
+    +string tamanho
+    +decimal preco
+  }
+  class CardapioUnidade {
+    +int id
+    +boolean disponivel
+    +ativar()
+    +desativar()
+  }
+  class Estoque {
+    +int id
+    +int quantidade
+    +entrada(qtd)
+    +saida(qtd)
+    +temSaldo(qtd) bool
+  }
+  class Cliente {
+    +int id
+    +string nome
+    +string email
+    +string cpf
+    +boolean aceiteFidelidade
+    +consultarPontos() int
+    +consultarHistorico() List
+  }
+  class Pedido {
+    +int id
+    +CanalPedido canalPedido
+    +StatusPedido status
+    +decimal total
+    +boolean anonimo
+    +calcularTotal() decimal
+    +cancelar()
+    +atualizarStatus(status)
+  }
+  class ItemPedido {
+    +int id
+    +int quantidade
+    +decimal precoUnitario
+    +subtotal() decimal
+  }
+  class Pagamento {
+    +int id
+    +string forma
+    +decimal valor
+    +StatusPagamento status
+    +processar()
+    +estaAprovado() bool
+  }
+  class PontosCliente {
+    +int id
+    +int saldoAtual
+    +int totalPedidos
+    +creditar(pontos)
+    +debitar(pontos)
+    +calcularBonusPedidos()
+    +converterEmDesconto() decimal
+  }
+  class HistoricoPontos {
+    +int id
+    +TipoPonto tipo
+    +int quantidade
+    +string descricao
+  }
+  class Voucher {
+    +int id
+    +string codigo
+    +decimal valor
+    +EscopoVoucher escopo
+    +date validade
+    +boolean usado
+    +estaValido() bool
+    +aplicar()
+  }
+  class Campanha {
+    +int id
+    +string descricao
+    +decimal descontoPercentual
+    +estaVigente() bool
+  }
+  class Notificacao {
+    +int id
+    +TipoNotificacao tipo
+    +string mensagem
+    +StatusEnvio statusEnvio
+    +enviar()
+  }
+  class SugestaoItem {
+    +int id
+    +string nome
+    +StatusSugestao status
+    +aprovar()
+    +rejeitar()
+  }
+  class Colaborador {
+    +int id
+    +string nome
+    +PerfilColaborador perfil
+  }
+  class UsuarioCentral {
+    +int id
+    +string nome
+    +PerfilCentral perfil
+    +string setor
+  }
+
+  Unidade "1" --> "0..*" Colaborador : tem
+  Unidade "1" --> "0..*" CardapioUnidade : configura
+  Unidade "1" --> "0..*" Estoque : controla
+  Unidade "1" --> "0..*" Pedido : recebe
+  Unidade "1" --> "0..*" Campanha : cria
+  Unidade "1" --> "0..*" SugestaoItem : sugere
+  ItemCardapio "1" --> "1..*" VariacaoItem : tem
+  ItemCardapio "1" --> "0..*" CardapioUnidade : presente em
+  ItemCardapio "1" --> "0..*" Estoque : monitorado por
+  Cliente "1" --> "0..*" Pedido : realiza
+  Cliente "1" --> "1" PontosCliente : possui
+  Cliente "1" --> "0..*" HistoricoPontos : acumula
+  Cliente "1" --> "0..*" Notificacao : recebe
+  Pedido "1" --> "1..*" ItemPedido : contem
+  Pedido "1" --> "0..1" Pagamento : gera
+  Pedido "1" --> "0..*" HistoricoPontos : origina
+  ItemPedido "1" --> "1" VariacaoItem : referencia
+  PontosCliente "1" --> "0..*" HistoricoPontos : registra
+  Colaborador "1" --> "0..*" SugestaoItem : registra

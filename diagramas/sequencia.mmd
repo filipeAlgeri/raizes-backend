@@ -1,0 +1,82 @@
+sequenceDiagram
+  autonumber
+  actor C as Cliente
+  participant API as API REST
+  participant PE as PedidoService
+  participant ES as EstoqueService
+  participant PG as PagamentoMock
+  participant PS as FidelidadeService
+  participant NS as NotificacaoService (conceitual, não implementado)
+  participant DB as Banco de Dados
+
+  C->>API: POST /pedidos (canalPedido, itens, formaPagamento)
+  API->>API: Valida JWT e permissoes
+  API->>API: Valida canalPedido e campos
+
+  alt canalPedido invalido
+    API-->>C: 422 CANAL_INVALIDO
+  end
+
+  API->>PE: criarPedido(dados)
+  PE->>DB: Busca unidade e produtos
+
+  alt Recurso inexistente
+    PE-->>API: ResourceNotFoundException
+    API-->>C: 404 RECURSO_NAO_ENCONTRADO
+  end
+
+  loop Para cada item
+    PE->>ES: temSaldo(unidadeId, itemId, qtd)
+    ES->>DB: SELECT estoque
+    DB-->>ES: saldo atual
+    ES-->>PE: true / false
+  end
+
+  alt Estoque insuficiente
+    PE-->>API: EstoqueInsuficienteException
+    API-->>C: 409 ESTOQUE_INSUFICIENTE
+  end
+
+  PE->>DB: INSERT pedido AGUARDANDO_PAGAMENTO
+  PE->>DB: INSERT itens_pedido (preco congelado)
+  PE->>ES: saida(unidadeId, itemId, qtd)
+  ES->>DB: UPDATE estoque - qtd
+  PE-->>API: pedido criado
+
+  API->>PG: processar(pedidoId, valor, forma)
+  PG->>PG: Simula aprovacao ou recusa
+
+  alt Pagamento APROVADO
+    PG-->>API: APROVADO + transacaoId
+    API->>DB: INSERT pagamento APROVADO
+    API->>DB: UPDATE pedido EM_PREPARO
+    API->>NS: notificar(cliente, aprovado)
+    NS-->>C: Push notification
+    API-->>C: 201 pedidoId + EM_PREPARO
+  else Pagamento RECUSADO
+    PG-->>API: RECUSADO
+    API->>DB: INSERT pagamento RECUSADO
+    API->>DB: UPDATE pedido CANCELADO
+    API->>ES: entrada(unidadeId, itemId, qtd)
+    ES->>DB: UPDATE estoque + qtd
+    API->>NS: notificar(cliente, recusado)
+    NS-->>C: Push notification
+    API-->>C: 201 pedidoId + CANCELADO
+  end
+
+  Note over API,DB: Atualizacoes de status pela cozinha
+  C->>API: PATCH /pedidos/id/status PRONTO
+  API->>DB: UPDATE pedido PRONTO
+  API->>NS: notificar(cliente, pronto)
+  NS-->>C: Push notification
+  API-->>C: 200 PRONTO
+
+  C->>API: PATCH /pedidos/id/status ENTREGUE
+  API->>DB: UPDATE pedido ENTREGUE
+  API->>PS: creditarPontos(clienteId, total)
+  PS->>PS: Calcula pontos e bonus
+  PS->>DB: UPDATE pontos_cliente
+  PS->>DB: INSERT historico_pontos
+  API->>NS: notificar(cliente, entregue)
+  NS-->>C: Push notification
+  API-->>C: 200 ENTREGUE

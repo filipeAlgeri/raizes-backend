@@ -1,0 +1,88 @@
+%%{init: {'flowchart': {'nodeSpacing': 25, 'rankSpacing': 45}}}%%
+flowchart LR
+  Cliente(["🧍 Cliente"])
+  Atendente(["🧍 Atendente"])
+  Cozinha(["🧍 Cozinha"])
+  Gerente(["🧍 Gerente da Unidade"])
+  Admin(["🧍 Admin Central"])
+  Gateway(["🌐 Gateway de Pagamento (mock)"])
+
+  subgraph SC[" "]
+    direction TB
+    UC1([Realizar cadastro])
+    UC2([Fazer login])
+    UC3([Consultar cardápio])
+    UC4([Realizar pedido])
+    UC5([Acompanhar status do pedido])
+    UC6([Consultar histórico de pedidos])
+    UC7([Consultar pontos de fidelidade])
+    UC8([Resgatar pontos])
+  end
+
+  subgraph SA[" "]
+    direction TB
+    UC9([Registrar pedido no balcão])
+    UC10([Vincular cliente ao pedido])
+  end
+
+  subgraph SCoz[" "]
+    direction TB
+    UC11([Atualizar status do pedido])
+  end
+
+  subgraph SG[" "]
+    direction TB
+    UC12([Processar pagamento mock])
+  end
+
+  subgraph SGer[" "]
+    direction TB
+    UC13([Gerenciar cardápio da unidade])
+    UC14([Gerenciar estoque])
+    UC15([Cadastrar colaboradores])
+    UC16([Emitir vouchers da unidade])
+    UC17([Criar campanhas promocionais])
+    UC18([Sugerir novo item ao cardápio mestre])
+  end
+
+  subgraph SAdm[" "]
+    direction TB
+    UC19([Gerenciar itens do cardápio mestre])
+    UC20([Aprovar / negar sugestões])
+    UC21([Cadastrar unidades])
+    UC22([Emitir vouchers da rede])
+  end
+
+  Cliente --- UC1
+  Cliente --- UC2
+  Cliente --- UC3
+  Cliente --- UC4
+  Cliente --- UC5
+  Cliente --- UC6
+  Cliente --- UC7
+  Cliente --- UC8
+
+  UC4 -. include .-> UC12
+  UC4 -. include .-> Voucher_aplicar([Aplicar voucher])
+
+  Atendente --- UC9
+  Atendente --- UC10
+  UC9 -. include .-> UC4
+
+  Cozinha --- UC11
+
+  Gateway --- UC12
+
+  Gerente --- UC13
+  Gerente --- UC14
+  Gerente --- UC15
+  Gerente --- UC16
+  Gerente --- UC17
+  Gerente --- UC18
+  UC18 -. include .-> UC20
+
+  Admin --- UC19
+  Admin --- UC20
+  Admin --- UC21
+  Admin --- UC22
+  UC20 -. extend .-> UC19

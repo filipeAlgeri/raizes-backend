@@ -1,0 +1,177 @@
+erDiagram
+  UNIDADE {
+    int id PK
+    string nome
+    string cnpj
+    string cidade
+    string estado
+    boolean ativa
+  }
+  USUARIO_CENTRAL {
+    int id PK
+    string nome
+    string email
+    string perfil
+    string setor
+  }
+  COLABORADOR {
+    int id PK
+    int unidade_id FK
+    string nome
+    string cpf
+    string perfil
+  }
+  CLIENTE {
+    int id PK
+    string nome
+    string email
+    string cpf
+    boolean aceite_lgpd
+    boolean aceite_fidelidade
+  }
+  ITEM_CARDAPIO {
+    int id PK
+    string nome
+    string categoria
+    string status
+  }
+  VARIACAO_ITEM {
+    int id PK
+    int item_id FK
+    string tamanho
+    decimal preco
+  }
+  CARDAPIO_UNIDADE {
+    int id PK
+    int unidade_id FK
+    int item_id FK
+    boolean disponivel
+  }
+  ESTOQUE {
+    int id PK
+    int unidade_id FK
+    int item_id FK
+    int quantidade
+  }
+  PEDIDO {
+    int id PK
+    int unidade_id FK
+    int cliente_id FK
+    string canal_pedido
+    string status
+    decimal total
+    boolean anonimo
+  }
+  ITEM_PEDIDO {
+    int id PK
+    int pedido_id FK
+    int item_id FK
+    int variacao_id FK
+    int quantidade
+    decimal preco_unitario
+  }
+  PAGAMENTO {
+    int id PK
+    int pedido_id FK
+    string forma
+    decimal valor
+    string status
+    json resposta_mock
+  }
+  PONTOS_CLIENTE {
+    int id PK
+    int cliente_id FK
+    int saldo_atual
+    int total_pedidos
+  }
+  HISTORICO_PONTOS {
+    int id PK
+    int cliente_id FK
+    int pedido_id FK
+    string tipo
+    int quantidade
+  }
+  VOUCHER {
+    int id PK
+    int unidade_id FK
+    int cliente_id FK
+    string codigo
+    decimal valor
+    string escopo
+    date validade
+    boolean usado
+  }
+  VOUCHER_UNIDADE {
+    int id PK
+    int voucher_id FK
+    int unidade_id FK
+  }
+  CAMPANHA {
+    int id PK
+    int unidade_id FK
+    string descricao
+    decimal desconto_percentual
+    date inicio
+    date fim
+  }
+  NOTIFICACAO {
+    int id PK
+    int cliente_id FK
+    int pedido_id FK
+    string tipo
+    string status_envio
+  }
+  SUGESTAO_ITEM {
+    int id PK
+    int unidade_id FK
+    int colaborador_id FK
+    string nome
+    string status
+  }
+  LOG_PEDIDO {
+    int id PK
+    int pedido_id FK
+    string status_antes
+    string status_depois
+    string realizado_por
+  }
+  MOVIMENTACAO_ESTOQUE {
+    int id PK
+    int estoque_id FK
+    int unidade_id FK
+    int item_id FK
+    string tipo
+    int quantidade
+    int quantidade_anterior
+    int quantidade_resultante
+    string motivo
+    string realizado_por
+    int pedido_id FK
+  }
+
+  UNIDADE ||--o{ COLABORADOR : "tem"
+  UNIDADE ||--o{ CARDAPIO_UNIDADE : "configura"
+  UNIDADE ||--o{ ESTOQUE : "controla"
+  UNIDADE ||--o{ PEDIDO : "recebe"
+  UNIDADE ||--o{ VOUCHER : "emite"
+  UNIDADE ||--o{ CAMPANHA : "cria"
+  UNIDADE ||--o{ SUGESTAO_ITEM : "sugere"
+  ITEM_CARDAPIO ||--o{ VARIACAO_ITEM : "tem"
+  ITEM_CARDAPIO ||--o{ CARDAPIO_UNIDADE : "pertence"
+  ITEM_CARDAPIO ||--o{ ESTOQUE : "monitorado"
+  CLIENTE ||--o{ PEDIDO : "realiza"
+  CLIENTE ||--|{ PONTOS_CLIENTE : "possui"
+  CLIENTE ||--o{ HISTORICO_PONTOS : "acumula"
+  CLIENTE ||--o{ VOUCHER : "recebe"
+  CLIENTE ||--o{ NOTIFICACAO : "recebe"
+  PEDIDO ||--o{ ITEM_PEDIDO : "contem"
+  PEDIDO ||--o| PAGAMENTO : "gera"
+  PEDIDO ||--o{ HISTORICO_PONTOS : "origina"
+  PEDIDO ||--o{ NOTIFICACAO : "dispara"
+  PEDIDO ||--o{ LOG_PEDIDO : "registra"
+  ITEM_PEDIDO }o--|| VARIACAO_ITEM : "usa"
+  VOUCHER ||--o{ VOUCHER_UNIDADE : "valido em"
+  UNIDADE ||--o{ VOUCHER_UNIDADE : "aceita"
+  COLABORADOR ||--o{ SUGESTAO_ITEM : "registra"
+  ESTOQUE ||--o{ MOVIMENTACAO_ESTOQUE : "historico"
+  PEDIDO ||--o{ MOVIMENTACAO_ESTOQUE : "gera (quando automatico)"
